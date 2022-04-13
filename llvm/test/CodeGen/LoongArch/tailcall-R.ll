@@ -29,7 +29,7 @@ define signext i32 @compare(i8* %x, i8* %y) {
 ; CHECK-NEXT:    addi.w $r5, $r5, 1
 ; CHECK-NEXT:    st.w $r5, $r4, 0
 ; CHECK-NEXT:  .LBB0_3: # %if.end
-; CHECK-NEXT:    slli.w $r4, $r23, 0
+; CHECK-NEXT:    move $r4, $r23
 ; CHECK-NEXT:    ld.d $r23, $sp, 16 # 8-byte Folded Reload
 ; CHECK-NEXT:    ld.d $ra, $sp, 24 # 8-byte Folded Reload
 ; CHECK-NEXT:    addi.d $sp, $sp, 32

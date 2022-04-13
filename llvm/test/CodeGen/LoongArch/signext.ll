@@ -20,7 +20,6 @@ define signext i32 @foo1() {
 ; CHECK-NEXT:    addi.w $r6, $r6, 1
 ; CHECK-NEXT:    bne $r6, $r5, .LBB1_1
 ; CHECK-NEXT:  # %bb.2: # %for.end
-; CHECK-NEXT:    slli.w $r4, $r4, 0
 ; CHECK-NEXT:    jr $ra
 entry:
   br label %for.body
