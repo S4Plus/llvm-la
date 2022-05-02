@@ -1,0 +1,6 @@
+/.vscode/
+/_build/
+/llvm_install/
+/test-case/
+/install/
+/build/
