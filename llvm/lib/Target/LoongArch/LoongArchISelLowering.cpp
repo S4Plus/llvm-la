@@ -2670,13 +2670,13 @@ static SDValue lowerVECTOR_SHUFFLE_XSHF(SDValue Op, EVT ResTy,
     for (int j = i; j < HalfSize; j += 4) {
       int Idx = Indices[j];
       // check mxshf
-      if(Idx + HalfSize != Indices[j + HalfSize])
+      if(Idx + HalfSize - 8 != Indices[j + HalfSize])
         return SDValue();
 
       // Convert from vector index to 4-element subvector index
       // If an index refers to an element outside of the subvector then give up
       if (Idx != -1) {
-        Idx -= 4 * (j / 4);
+        Idx = Idx - 4 * (j / 4) - 4;
         if (Idx < 0 || Idx >= 4)
           return SDValue();
       }
