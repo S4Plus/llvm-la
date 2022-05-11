@@ -363,6 +363,7 @@ LoongArchTargetLowering::LoongArchTargetLowering(const LoongArchTargetMachine &T
   setTargetDAGCombine(ISD::OR);
   setTargetDAGCombine(ISD::AssertZext);
   setTargetDAGCombine(ISD::SHL);
+  setTargetDAGCombine(ISD::SIGN_EXTEND);
 
   if (ABI.IsLP32()) {
     // These libcalls are not available in 32-bit.
@@ -1659,6 +1660,33 @@ performCONCAT_VECTORSCombine(SDNode *N, SelectionDAG &DAG,
                  0);
 }
 
+static SDValue performSIGN_EXTENDCombine(SDNode *N, SelectionDAG &DAG,
+                                         TargetLowering::DAGCombinerInfo &DCI,
+                                         const LoongArchSubtarget &Subtarget) {
+
+  assert((N->getOpcode() == ISD::SIGN_EXTEND) && "Need ISD::SIGN_EXTEND");
+
+  SDLoc DL(N);
+  SDValue Top = N->getOperand(0);
+
+  if (!(Top->getOpcode() == ISD::CopyFromReg))
+    return SDValue();
+
+  if ((Top->getOperand(0)->getOpcode() == ISD::EntryToken) &&
+      (N->getValueType(0) == MVT::i64)) {
+
+    SDValue SubReg = DAG.getTargetConstant(LoongArch::sub_32, DL, MVT::i32);
+    SDNode *Res = DAG.getMachineNode(TargetOpcode::IMPLICIT_DEF, DL, MVT::i64);
+
+    Res = DAG.getMachineNode(TargetOpcode::INSERT_SUBREG, DL, MVT::i64,
+                             SDValue(Res, 0), Top, SubReg);
+
+    return SDValue(Res, 0);
+  }
+
+  return SDValue();
+}
+
 SDValue  LoongArchTargetLowering::
 PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const {
   SelectionDAG &DAG = DCI.DAG;
@@ -1682,6 +1710,8 @@ PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const {
     return performVSELECTCombine(N, DAG);
   case ISD::CONCAT_VECTORS:
     return performCONCAT_VECTORSCombine(N, DAG, DCI, Subtarget);
+  case ISD::SIGN_EXTEND:
+    return performSIGN_EXTENDCombine(N, DAG, DCI, Subtarget);
   }
   return SDValue();
 }

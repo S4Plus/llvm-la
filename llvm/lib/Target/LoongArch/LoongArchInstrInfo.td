@@ -1901,3 +1901,9 @@ def : LoongArchPat<(i64 (or GPR64:$rj, (xor GPR64:$rk, (i64 -1)))),
 
 def : LoongArchPat<(i64 (zext (i32 (seteq GPR64:$rj, (i64 0))))),
                    (SLTUI_64 GPR64:$rj, (i64 1))>;
+
+
+def : LoongArchPat<(i64 (zext (i32 (srl GPR32:$src, immZExt5:$imm5)))),
+                   (BSTRPICK_D (INSERT_SUBREG
+                                 (i64 (IMPLICIT_DEF)), GPR32:$src, sub_32),
+                               (i32 31), immZExt5:$imm5)>;
