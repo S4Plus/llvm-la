@@ -444,6 +444,8 @@ LoongArchTargetLowering::LoongArchTargetLowering(const LoongArchTargetMachine &T
     addLASXFloatType(MVT::v8f32, &LoongArch::LASX256WRegClass);
     addLASXFloatType(MVT::v4f64, &LoongArch::LASX256DRegClass);
 
+    setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4f64, Custom);
+
     // f16 is a storage-only type, always promote it to f32.
     setOperationAction(ISD::SETCC, MVT::f16, Promote);
     setOperationAction(ISD::BR_CC, MVT::f16, Promote);
@@ -5286,6 +5288,90 @@ static SDValue lowerVECTOR_SHUFFLE_XVSHUF(const SDLoc &DL, MVT VT, EVT ResTy,
     return SDValue();
 }
 
+/// Get a 4-lane 8-bit shuffle immediate for a mask.
+///
+/// This helper function produces an 8-bit shuffle immediate corresponding to
+/// the ubiquitous shuffle encoding scheme used in x86 instructions for
+/// shuffling 4 lanes. It can be used with most of the PSHUF instructions for
+/// example.
+///
+/// NB: We rely heavily on "undef" masks preserving the input lane.
+static unsigned getV4LoongArchShuffleImm(ArrayRef<int> Mask) {
+  assert(Mask.size() == 4 && "Only 4-lane shuffle masks");
+  assert(Mask[0] >= -1 && Mask[0] < 4 && "Out of bound mask element!");
+  assert(Mask[1] >= -1 && Mask[1] < 4 && "Out of bound mask element!");
+  assert(Mask[2] >= -1 && Mask[2] < 4 && "Out of bound mask element!");
+  assert(Mask[3] >= -1 && Mask[3] < 4 && "Out of bound mask element!");
+
+  unsigned Imm = 0;
+  Imm |= (Mask[0] < 0 ? 0 : Mask[0]) << 0;
+  Imm |= (Mask[1] < 0 ? 1 : Mask[1]) << 2;
+  Imm |= (Mask[2] < 0 ? 2 : Mask[2]) << 4;
+  Imm |= (Mask[3] < 0 ? 3 : Mask[3]) << 6;
+  return Imm;
+}
+
+static SDValue getV4LoongArchShuffleImm8ForMask(ArrayRef<int> Mask, const SDLoc &DL,
+                                          SelectionDAG &DAG) {
+  return DAG.getConstant(getV4LoongArchShuffleImm(Mask), DL, MVT::i32); // i8->i32 lmx:没有对i8合法化的操作
+}
+
+/// Handle lowering of 4-lane 64-bit floating point shuffles.
+///
+/// Also ends up handling lowering of 4-lane 64-bit integer shuffles when LASX
+/// isn't available.
+static SDValue lowerV4F64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
+                                      //  const APInt &Zeroable,
+                                       SDValue V1, SDValue V2,
+                                      //  const X86Subtarget &Subtarget,
+                                       SelectionDAG &DAG) {
+  assert(V1.getSimpleValueType() == MVT::v4f64 && "Bad operand type!");
+  assert(V2.getSimpleValueType() == MVT::v4f64 && "Bad operand type!");
+  assert(Mask.size() == 4 && "Unexpected mask size for v4 shuffle!");
+
+  // SDValue Result;
+  
+  // With LASX we have direct support for this permutation.
+  // if (Subtarget.hasLASX())
+    return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4f64, V1,
+                         getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
+  // return Result;
+
+}
+/// High-level routine to lower various 256-bit x86 vector shuffles.
+///
+/// This routine either breaks down the specific type of a 256-bit LoongArch vector
+/// shuffle or splits it into two 128-bit shuffles and fuses the results back
+/// together based on the available instructions.
+static SDValue lower256Bit_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
+                                        MVT VT, SDValue V1, SDValue V2,
+                                        // const APInt &Zeroable,
+                                        // const X86Subtarget &Subtarget,
+                                        SelectionDAG &DAG) {
+  switch (VT.SimpleTy) {
+  case MVT::v4f64:
+    return lowerV4F64_VECTOR_SHUFFLE(DL, Mask, V1, V2, DAG);
+  // case MVT::v4i64:
+  //   return lowerV4I64_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+  // case MVT::v8f32:
+  //   return lowerV8F32_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+  // case MVT::v8i32:
+  //   return lowerV8I32_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+  // case MVT::v16i16:
+  //   return lowerV16I16_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+  // case MVT::v32i8:
+  //   return lowerV32I8_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+
+  default:
+    llvm_unreachable("Not a valid 256-bit x86 vector type!");
+  }
+
+
+
+
+
+}
+
 // Lower VECTOR_SHUFFLE into one of a number of instructions depending on the
 // indices in the shuffle.
 SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
@@ -5336,8 +5422,8 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
     SDValue Result;
     if ((Result = lowerHalfHalf(DL, VT, Op1, Op2, Mask, DAG)))
       return Result;
-    if ((Result = lowerHalfUndef(DL, VT, Op1, Op2, Mask, DAG)))
-      return Result;
+    // if ((Result = lowerHalfUndef(DL, VT, Op1, Op2, Mask, DAG)))
+    //   return Result;
     if (isVECTOR_SHUFFLE_XVREPLVEI(Op, ResTy, Indices, DAG))
       return SDValue();
     if ((Result = lowerVECTOR_SHUFFLE_XVPACKEV(Op, ResTy, Indices, DAG)))
@@ -5362,6 +5448,12 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
       return Result;
     if ((Result =
              lowerVECTOR_SHUFFLE_XVSHUF(DL, VT, ResTy, Op1, Op2, Mask, DAG)))
+      return Result;
+  }
+  if (VT.is256BitVector()){
+    SDValue Result;
+    if(Result = lower256Bit_VECTOR_SHUFFLE(DL, Mask, VT, Op1, Op2,
+                                    DAG))
       return Result;
   }
 

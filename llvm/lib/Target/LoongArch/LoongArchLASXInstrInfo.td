@@ -5023,6 +5023,8 @@ def : LASXPat<(LoongArchXVSHUF4I  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm
 def : LASXPat<(LoongArchXVPERMI  (v4i64 LASX256D:$a), uimm8_32:$ui8),
               (XVPERMI_D  LASX256D:$a, uimm8_32:$ui8)>;
 
+// def : LASXPat<(LoongArchXVPERMI  (v4f64 LASX256D:$a), uimm8_32:$ui8),
+//               (XVPERMI_D  LASX256D:$a, uimm8_32:$ui8)>;
 
 
 
