@@ -10,9 +10,13 @@
 // This file describes loongson ASX instructions.
 //
 //===----------------------------------------------------------------------===//
-def SDT_XVPERMI : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisInt<0>,
+def SDT_Shuff_2OP_INT : SDTypeProfile<1,2,[SDTCisVec<0>, SDTCisInt<0>,
                                        SDTCisSameAs<0, 1>,
                                        SDTCisVT<2, i32>]>;
+def SDT_Shuff_2OP_FP : SDTypeProfile<1,2,[SDTCisVec<0>, SDTCisFP<0>,
+                                       SDTCisSameAs<0, 1>,
+                                       SDTCisVT<2, i32>]>;
+
 def SDT_XVSHFI : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisVec<0>,
                                       SDTCisSameAs<0, 1>, SDTCisSameAs<1, 2>,
                                       SDTCisVT<3, i32>]>;
@@ -35,7 +39,9 @@ def LoongArchXVSHUFI : SDNode<"LoongArchISD::XVSHFI", SDT_XVSHFI>;
 
 def LoongArchXVSELI  : SDNode<"LoongArchISD::XVSELI", SDT_XVSHFI>;
 
-def LoongArchXVPERMI : SDNode<"LoongArchISD::XVPERMI", SDT_XVPERMI>;
+def LoongArchXVPERMI_INT : SDNode<"LoongArchISD::XVPERMI", SDT_Shuff_2OP_INT>;
+
+def LoongArchXVPERMI_FP : SDNode<"LoongArchISD::XVPERMI", SDT_Shuff_2OP_FP>;
 
 def LoongArchXVBROADCAST : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVBROADCAST>;
 
@@ -3763,7 +3769,10 @@ def XVPERMI_W : LASX_I8_U<0b01110111111001>,
                 LASX_2R_3R_U8_DESC_BASE<"xvpermi.w", int_loongarch_lasx_xvpermi_w, LASX256WOpnd, LASX256WOpnd>;
 
 def XVPERMI_D : LASX_I8_U<0b01110111111010>,
-                LASX_2R_U8_DESC_BASE<"xvpermi.d", int_loongarch_lasx_xvpermi_d, LASX256DOpnd, LASX256DOpnd>;
+                LASX_2R_U8_DESC_BASE<"xvpermi.d", LoongArchXVPERMI_INT, LASX256DOpnd, LASX256DOpnd>;
+
+def XVPERMI_D_FP : LASX_I8_U<0b01110111111010>,
+                LASX_2R_U8_DESC_BASE<"xvpermi.d", LoongArchXVPERMI_FP, LASX256DOpnd, LASX256DOpnd>;
 
 def XVPERMI_Q : LASX_I8_U<0b01110111111011>,
                 LASX_2R_3R_U8_DESC_BASE<"xvpermi.q", int_loongarch_lasx_xvpermi_q, LASX256BOpnd, LASX256BOpnd>;
@@ -5020,11 +5029,9 @@ def : LASXPat<(LoongArchXVPICKVE  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm
 def : LASXPat<(LoongArchXVSHUF4I  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm8_32:$ui8),
               (XVSHUF4I_D  LASX256D:$a, LASX256D:$b, uimm8_32:$ui8)>;
 
-def : LASXPat<(LoongArchXVPERMI  (v4i64 LASX256D:$a), uimm8_32:$ui8),
+def : LASXPat<(int_loongarch_lasx_xvpermi_d  (v4i64 LASX256D:$a), uimm8_32:$ui8),
               (XVPERMI_D  LASX256D:$a, uimm8_32:$ui8)>;
 
-// def : LASXPat<(LoongArchXVPERMI  (v4f64 LASX256D:$a), uimm8_32:$ui8),
-//               (XVPERMI_D  LASX256D:$a, uimm8_32:$ui8)>;
 
 
 
