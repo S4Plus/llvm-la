@@ -10,13 +10,7 @@
 // This file describes loongson ASX instructions.
 //
 //===----------------------------------------------------------------------===//
-// def SDT_Shuff_2OP_INT : SDTypeProfile<1,2,[SDTCisVec<0>, SDTCisInt<0>,
-//                                        SDTCisSameAs<0, 1>,
-//                                        SDTCisVT<2, i32>]>;
-// def SDT_Shuff_2OP_FP : SDTypeProfile<1,2,[SDTCisVec<0>, SDTCisFP<0>,
-//                                        SDTCisSameAs<0, 1>,
-//                                        SDTCisVT<2, i32>]>;
-def SDTShuff2OpI : SDTypeProfile<1, 2, [SDTCisVec<0>,
+def SDT_SHUFF_2OP_IMM : SDTypeProfile<1, 2, [SDTCisVec<0>,
                                  SDTCisSameAs<0,1>, SDTCisVT<2, i32>]>;
 
 def SDT_XVSHFI : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisVec<0>,
@@ -41,11 +35,7 @@ def LoongArchXVSHUFI : SDNode<"LoongArchISD::XVSHFI", SDT_XVSHFI>;
 
 def LoongArchXVSELI  : SDNode<"LoongArchISD::XVSELI", SDT_XVSHFI>;
 
-// def LoongArchXVPERMI_INT : SDNode<"LoongArchISD::XVPERMI", SDT_Shuff_2OP_INT>;
-
-// def LoongArchXVPERMI_FP : SDNode<"LoongArchISD::XVPERMI", SDT_Shuff_2OP_FP>;
-
-def LoongArchXVPERMI  : SDNode<"LoongArchISD::XVPERMI",    SDTShuff2OpI>;
+def LoongArchXVPERMI  : SDNode<"LoongArchISD::XVPERMI",    SDT_SHUFF_2OP_IMM>;
 
 def LoongArchXVBROADCAST : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVBROADCAST>;
 
@@ -3772,33 +3762,11 @@ def XVLDI_D : LASX_1R_I13_I10<0b01110111111000011>,
 def XVPERMI_W : LASX_I8_U<0b01110111111001>,
                 LASX_2R_3R_U8_DESC_BASE<"xvpermi.w", int_loongarch_lasx_xvpermi_w, LASX256WOpnd, LASX256WOpnd>;
 
-// class LASXAIi8<bits<14> op,string instr_asm,SDPatternOperator 
-//                           OpNode,ValueType OpVT,RegisterOperand ROXD,
-//                           RegisterOperand ROXJ> : LASX_I8_U<op>{
-//   dag OutOperandList = (outs ROXD:$xd);
-//   dag InOperandList = (ins ROXJ:$xj, uimm8:$ui8);
-//   string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui8");
-//   list<dag> Pattern = [(set ROXD:$xd, 
-//                         (OpVT (OpNode  ROXJ:$xj, immZExt8:$ui8)))];
-// }
-
-// multiclass lasx_perm_imm<bits<14> op,string instr_asm,
-//                            SDPatternOperator OpNode,
-//                           //  ValueType OpVT,
-//                            RegisterOperand ROXD,
-//                            RegisterOperand ROXJ> {
-//   def _D: LASXAIi8<op,instr_asm,OpNode,v4i64,ROXD,ROXJ>;
-//   def _FP : LASXAIi8<op,instr_asm,OpNode,v4f64,ROXD,ROXJ>;
-// }
-
-
-// defm XVPERMI : lasx_perm_imm<0b01110111111010,"xvpermi.d", LoongArchXVPERMI, LASX256DOpnd, LASX256DOpnd>;
-
-class lasx_perm_imm<string instr_asm,
-                           SDPatternOperator OpNode,
-                           ValueType OpVT,
-                           RegisterOperand ROXD,
-                           RegisterOperand ROXJ> {
+class LASX_PERM_IMM<string instr_asm,
+                    SDPatternOperator OpNode,
+                    ValueType OpVT,
+                    RegisterOperand ROXD,
+                    RegisterOperand ROXJ> {
   dag OutOperandList = (outs ROXD:$xd);
   dag InOperandList = (ins ROXJ:$xj, uimm8:$ui8);
   string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui8");
@@ -3807,19 +3775,7 @@ class lasx_perm_imm<string instr_asm,
 }
 
 def XVPERMI_D : LASX_I8_U<0b01110111111010>,
-                lasx_perm_imm<"xvpermi.d", LoongArchXVPERMI, v4i64, LASX256DOpnd, LASX256DOpnd>;
-
-def : LASXPat<(LoongArchXVPERMI  (v4f64 LASX256D:$a), uimm8_32:$ui8),
-              (!cast<Instruction>(XVPERMI_D)  LASX256D:$a, uimm8_32:$ui8)>;
-
-// def XVPERMI_D : LASX_I8_U<0b01110111111010>,
-//                 LASX_2R_U8_DESC_BASE<"xvpermi.d", LoongArchXVPERMI_INT, LASX256DOpnd, LASX256DOpnd>;
-
-// def XVPERMI_D_FP : LASX_I8_U<0b01110111111010>,
-//                 LASX_2R_U8_DESC_BASE<"xvpermi.d", LoongArchXVPERMI_FP, LASX256DOpnd, LASX256DOpnd>;
-
-
-
+                LASX_PERM_IMM<"xvpermi.d", LoongArchXVPERMI, v4i64, LASX256DOpnd, LASX256DOpnd>;
 
 def XVPERMI_Q : LASX_I8_U<0b01110111111011>,
                 LASX_2R_3R_U8_DESC_BASE<"xvpermi.q", int_loongarch_lasx_xvpermi_q, LASX256BOpnd, LASX256BOpnd>;
@@ -5079,7 +5035,8 @@ def : LASXPat<(LoongArchXVSHUF4I  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm
 def : LASXPat<(int_loongarch_lasx_xvpermi_d  (v4i64 LASX256D:$a), uimm8_32:$ui8),
               (XVPERMI_D  LASX256D:$a, uimm8_32:$ui8)>;
 
-
+def : LASXPat<(LoongArchXVPERMI  (v4f64 LASX256D:$a), uimm8_32:$ui8),
+              (!cast<Instruction>(XVPERMI_D)  LASX256D:$a, uimm8_32:$ui8)>;
 
 
 //===----------------------------------------------------------------------===//
