@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # The LLVM Compiler Infrastructure
 
 This directory and its subdirectories contain source code for LLVM,
