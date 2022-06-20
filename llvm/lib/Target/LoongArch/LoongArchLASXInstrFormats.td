@@ -364,7 +364,6 @@ class LASX_1R_I13<bits<14> op>: LASXInst {
 }
 
 class LASX_I8_U<bits<14> op>: LASXInst {
-  let isCodeGenOnly = 1;
   bits<5> xd;
   bits<5> xj;
   bits<8> ui8;
