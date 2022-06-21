@@ -445,6 +445,7 @@ LoongArchTargetLowering::LoongArchTargetLowering(const LoongArchTargetMachine &T
     addLASXFloatType(MVT::v4f64, &LoongArch::LASX256DRegClass);
 
     setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4f64, Custom);
+    setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v8f32, Custom);
 
     // f16 is a storage-only type, always promote it to f32.
     setOperationAction(ISD::SETCC, MVT::f16, Promote);
