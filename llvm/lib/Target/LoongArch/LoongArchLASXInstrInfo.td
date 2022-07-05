@@ -44,6 +44,8 @@ def LoongArchXVPICKEV : SDNode<"LoongArchISD::VPICKEV", SDT_ILV_2OP>;
 
 def LoongArchXVPICKOD : SDNode<"LoongArchISD::VPICKOD", SDT_ILV_2OP>;
 
+def LoongArchXSHF : SDNode<"LoongArchISD::SHF", SDT_SHUFF_2OP_IMM>;
+
 def LoongArchXVBROADCAST : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVBROADCAST>;
 
 def LoongArchINSVE : SDNode<"LoongArchISD::INSVE", SDT_INSVE>;
@@ -1032,12 +1034,12 @@ class LASX_I8_O4_SHF_DESC_BASE<string instr_asm,
 
 class LASX_I8_SHF_DESC_BASE<string instr_asm,
                            SDPatternOperator OpNode,
-                           RegisterOperand ROXD,
+                           ValueType OpVT, RegisterOperand ROXD,
                            RegisterOperand ROXJ = ROXD> {
   dag OutOperandList = (outs ROXD:$xd);
   dag InOperandList = (ins ROXJ:$xj, uimm8:$ui8);
   string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui8");
-  list<dag> Pattern = [(set ROXD:$xd, (OpNode ROXJ:$xj, immZExt8:$ui8))];
+  list<dag> Pattern = [(set ROXD:$xd, (OpVT (OpNode ROXJ:$xj, immZExt8:$ui8)))];
 }
 
 class LASX_2R_U8_DESC_BASE<string instr_asm,
@@ -3744,15 +3746,17 @@ def XVEXTRINS_W : LASX_I8_U<0b01110111100001>,
 def XVEXTRINS_D : LASX_I8_U<0b01110111100000>,
                   LASX_2R_3R_U8_DESC_BASE<"xvextrins.d", int_loongarch_lasx_xvextrins_d, LASX256DOpnd, LASX256DOpnd>;
 
-
 def XVSHUF4I_B : LASX_I8_U<0b01110111100100>,
-                 LASX_I8_SHF_DESC_BASE<"xvshuf4i.b", int_loongarch_lasx_xvshuf4i_b, LASX256BOpnd>;
+                 LASX_I8_SHF_DESC_BASE<"xvshuf4i.b", LoongArchXSHF, v32i8,  LASX256BOpnd>;
 
 def XVSHUF4I_H : LASX_I8_U<0b01110111100101>,
-                 LASX_I8_SHF_DESC_BASE<"xvshuf4i.h", int_loongarch_lasx_xvshuf4i_h, LASX256HOpnd>;
+                 LASX_I8_SHF_DESC_BASE<"xvshuf4i.h", LoongArchXSHF, v16i16, LASX256HOpnd>;
 
 def XVSHUF4I_W : LASX_I8_U<0b01110111100110>,
-                 LASX_I8_SHF_DESC_BASE<"xvshuf4i.w", int_loongarch_lasx_xvshuf4i_w, LASX256WOpnd>;
+                 LASX_I8_SHF_DESC_BASE<"xvshuf4i.w", LoongArchXSHF, v8i32, LASX256WOpnd>;
+
+def : LASXPat<(LoongArchXSHF (v8f32 LASX256W:$xj), uimm8_32:$ui8),
+              (!cast<Instruction>(XVSHUF4I_W) LASX256W:$xj, uimm8_32:$ui8)>;
 
 def XVSHUF4I_D : LASX_I8_U<0b01110111100111>,
                  LASX_I8_O4_SHF_DESC_BASE<"xvshuf4i.d", int_loongarch_lasx_xvshuf4i_d, LASX256DOpnd>;
@@ -5063,6 +5067,14 @@ def : LASXPat<(LoongArchXVPICKVE  (v8i32 LASX256W:$a), (v8i32 LASX256W:$b), uimm
 def : LASXPat<(LoongArchXVPICKVE  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm2:$ui2),
               (XVPICKVE_D  LASX256D:$a, LASX256D:$b, uimm2:$ui2)>;
 
+def : LASXPat<(int_loongarch_lasx_xvshuf4i_b  (v32i8 LASX256BOpnd:$a), uimm8_32:$ui8),
+              (XVSHUF4I_B  LASX256BOpnd:$a, uimm8_32:$ui8)>;
+
+def : LASXPat<(int_loongarch_lasx_xvshuf4i_h  (v16i16 LASX256HOpnd:$a), uimm8_32:$ui8),
+              (XVSHUF4I_H  LASX256HOpnd:$a, uimm8_32:$ui8)>;
+
+def : LASXPat<(int_loongarch_lasx_xvshuf4i_w  (v8i32 LASX256WOpnd:$a), uimm8_32:$ui8),
+              (XVSHUF4I_W  LASX256WOpnd:$a, uimm8_32:$ui8)>;
 
 def : LASXPat<(LoongArchXVSHUF4I  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm8_32:$ui8),
               (XVSHUF4I_D  LASX256D:$a, LASX256D:$b, uimm8_32:$ui8)>;

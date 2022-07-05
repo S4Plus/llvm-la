@@ -2738,8 +2738,8 @@ static SDValue lowerVECTOR_SHUFFLE_XSHF(SDValue Op, EVT ResTy,
     Imm |= Idx & 0x3;
   }
   SDLoc DL(Op);
-  return DAG.getNode(LoongArchISD::SHF, DL, ResTy,
-                     DAG.getConstant(Imm, DL, MVT::i32), Op->getOperand(0));
+  return DAG.getNode(LoongArchISD::SHF, DL, ResTy, Op->getOperand(0),
+                     DAG.getConstant(Imm, DL, MVT::i32));
 }
 static bool isConstantOrUndef(const SDValue Op) {
   if (Op->isUndef())
@@ -5356,11 +5356,115 @@ static SDValue lowerV4I64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
 
 }
 
+/// Test whether a shuffle mask is equivalent within each sub-lane.
+///
+/// This checks a shuffle mask to see if it is performing the same
+/// lane-relative shuffle in each sub-lane. This trivially implies
+/// that it is also not lane-crossing. It may however involve a blend from the
+/// same lane of a second vector.
+///
+/// The specific repeated shuffle mask is populated in \p RepeatedMask, as it is
+/// non-trivial to compute in the face of undef lanes. The representation is
+/// suitable for use with existing 128-bit shuffles as entries from the second
+/// vector have been remapped to [LaneSize, 2*LaneSize).
+static bool isRepeatedShuffleMask(unsigned LaneSizeInBits, MVT VT,
+                                  ArrayRef<int> Mask,
+                                  SmallVectorImpl<int> &RepeatedMask) {
+  auto LaneSize = LaneSizeInBits / VT.getScalarSizeInBits();    // 通道元素个数
+  RepeatedMask.assign(LaneSize, -1);
+  int Size = Mask.size();
+  for (int i = 0; i < Size; ++i) {
+    assert(Mask[i] == -1 || Mask[i] >= 0);
+    if (Mask[i] < 0)
+      continue;
+    if ((Mask[i] % Size) / LaneSize != i / LaneSize)
+      // This entry crosses lanes, so there is no way to model this shuffle.
+      return false;
+
+    // Ok, handle the in-lane shuffles by detecting if and when they repeat.
+    // Adjust second vector indices to start at LaneSize instead of Size.
+    int LocalM = Mask[i] < Size ? Mask[i] % LaneSize
+                                : Mask[i] % LaneSize + LaneSize;
+    if (RepeatedMask[i % LaneSize] < 0)
+      // This is the first non-undef entry in this slot of a 128-bit lane.
+      RepeatedMask[i % LaneSize] = LocalM;
+    else if (RepeatedMask[i % LaneSize] != LocalM)
+      // Found a mismatch with the repeated mask.
+      return false;
+  }
+  return true;
+}
+
+/// Test whether a shuffle mask is equivalent within each 128-bit lane.
+static bool
+is128BitLaneRepeatedShuffleMask(MVT VT, ArrayRef<int> Mask,
+                                SmallVectorImpl<int> &RepeatedMask) {
+  return isRepeatedShuffleMask(128, VT, Mask, RepeatedMask);
+}
+
+/// Handle lowering of 8-lane 32-bit integer shuffles.
+///
+/// This routine is only called when we have LASX and thus a reasonable
+/// instruction set for v8i32 shuffling..
+static SDValue lowerV8I32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
+                                      //  const APInt &Zeroable,
+                                       SDValue V1, SDValue V2,
+                                      //  const X86Subtarget &Subtarget,
+                                       SelectionDAG &DAG) {
+  assert(V1.getSimpleValueType() == MVT::v8i32 && "Bad operand type!");
+  assert(V2.getSimpleValueType() == MVT::v8i32 && "Bad operand type!");
+  assert(Mask.size() == 8 && "Unexpected mask size for v8 shuffle!");
+
+  // If the shuffle mask is repeated in each 128-bit lane we can use more
+  // efficient instructions that mirror the shuffles across the two 128-bit
+  // lanes.⑤
+  SmallVector<int, 4> RepeatedMask;
+  bool Is128BitLaneRepeatedShuffle =
+      is128BitLaneRepeatedShuffleMask(MVT::v8i32, Mask, RepeatedMask);  //测试洗牌掩码在每个128位通道内是否相等
+  if (Is128BitLaneRepeatedShuffle) {
+    assert(RepeatedMask.size() == 4 && "Unexpected repeated mask size!");
+    if (V2.isUndef())
+      //Same as lowerVECTOR_SHUFFLE_XSHF function.
+      return DAG.getNode(LoongArchISD::SHF, DL, MVT::v8i32, V1,
+                         getV4LoongArchShuffleImm8ForMask(RepeatedMask, DL, DAG));
+    // TODO:Use dedicated unpack instructions for masks that match their pattern.
+  }
+  return SDValue();
+}
+
+static SDValue lowerV8F32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
+                                      //  const APInt &Zeroable,
+                                       SDValue V1, SDValue V2,
+                                      //  const X86Subtarget &Subtarget,
+                                       SelectionDAG &DAG) {
+  assert(V1.getSimpleValueType() == MVT::v8f32 && "Bad operand type!");
+  assert(V2.getSimpleValueType() == MVT::v8f32 && "Bad operand type!");
+  assert(Mask.size() == 8 && "Unexpected mask size for v8 shuffle!");
+
+  // If the shuffle mask is repeated in each 128-bit lane we can use more
+  // efficient instructions that mirror the shuffles across the two 128-bit
+  // lanes.⑤
+  SmallVector<int, 4> RepeatedMask;
+  bool Is128BitLaneRepeatedShuffle =
+      is128BitLaneRepeatedShuffleMask(MVT::v8f32, Mask, RepeatedMask);  
+  if (Is128BitLaneRepeatedShuffle) {
+    assert(RepeatedMask.size() == 4 && "Unexpected repeated mask size!");
+    if (V2.isUndef())
+      //Same as lowerVECTOR_SHUFFLE_XSHF function.
+      return DAG.getNode(LoongArchISD::SHF, DL, MVT::v8f32, V1,
+                         getV4LoongArchShuffleImm8ForMask(RepeatedMask, DL, DAG));
+    // TODO:Use dedicated unpack instructions for masks that match their pattern.
+  }
+
+  // TODO:Try to create an in-lane repeating shuffle mask and then shuffle the
+  return SDValue();
+}
+
 /// High-level routine to lower various 256-bit x86 vector shuffles.
 ///
-/// This routine either breaks down the specific type of a 256-bit LoongArch vector
-/// shuffle or splits it into two 128-bit shuffles and fuses the results back
-/// together based on the available instructions.
+/// This routine either breaks down the specific type of a 256-bit LoongArch 
+/// vector shuffle or splits it into two 128-bit shuffles and fuses the results
+/// back together based on the available instructions.
 static SDValue lower256Bit_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
                                         MVT VT, SDValue V1, SDValue V2,
                                         // const APInt &Zeroable,
@@ -5371,10 +5475,10 @@ static SDValue lower256Bit_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
     return lowerV4F64_VECTOR_SHUFFLE(DL, Mask, V1, V2, DAG);
   case MVT::v4i64:
     return lowerV4I64_VECTOR_SHUFFLE(DL, Mask, V1, V2, DAG);
-  // case MVT::v8f32:
-  //   return lowerV8F32_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
-  // case MVT::v8i32:
-  //   return lowerV8I32_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+  case MVT::v8f32:
+    return lowerV8F32_VECTOR_SHUFFLE(DL, Mask, V1, V2, DAG);
+  case MVT::v8i32:
+    return lowerV8I32_VECTOR_SHUFFLE(DL, Mask, V1, V2, DAG);
   // case MVT::v16i16:
   //   return lowerV16I16_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
   // case MVT::v32i8:
