@@ -23,8 +23,8 @@ def SDT_VFSetCC : SDTypeProfile<1, 3, [SDTCisInt<0>,
 def SDT_VSHF : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisVec<0>,
                                     SDTCisInt<1>, SDTCisVec<1>,
                                     SDTCisSameAs<0, 2>, SDTCisSameAs<2, 3>]>;
-def SDT_SHF : SDTypeProfile<1, 2, [SDTCisInt<0>, SDTCisVec<0>,
-                                   SDTCisVT<1, i32>, SDTCisSameAs<0, 2>]>;
+def SDT_SHF : SDTypeProfile<1, 2, [SDTCisVec<0>,
+                                   SDTCisVT<2, i32>, SDTCisSameAs<0, 1>]>;
 def SDT_ILV : SDTypeProfile<1, 2, [SDTCisInt<0>, SDTCisVec<0>,
                                    SDTCisSameAs<0, 1>, SDTCisSameAs<1, 2>]>;
 def SDTVABSD : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisSameAs<0, 1>,
@@ -1243,12 +1243,13 @@ class LSX_BIT_U5_VREPLVE_DESC_BASE_Intrinsic<string instr_asm, SDPatternOperator
   list<dag> Pattern = [(set ROVD:$vd, (OpNode ROVJ:$vj, immZExt5:$ui5))];
 }
 
-class LSX_I8_SHF_DESC_BASE<string instr_asm, RegisterOperand ROVD,
+class LSX_I8_SHF_DESC_BASE<string instr_asm, SDPatternOperator OpNode, 
+                           ValueType OpVT, RegisterOperand ROVD,
                            RegisterOperand ROVJ = ROVD> {
   dag OutOperandList = (outs ROVD:$vd);
   dag InOperandList = (ins ROVJ:$vj, uimm8:$ui8);
   string AsmString = !strconcat(instr_asm, "\t$vd, $vj, $ui8");
-  list<dag> Pattern = [(set ROVD:$vd, (LoongArchSHF immZExt8:$ui8, ROVJ:$vj))];
+  list<dag> Pattern = [(set ROVD:$vd, (OpVT (OpNode ROVJ:$vj, immZExt8:$ui8)))];
 }
 
 class LSX_I8_SHUF_DESC_BASE_D<string instr_asm,
@@ -2832,13 +2833,16 @@ def VSRAI_D : LSX_I6_U<0b0111001100110101>,
 
 
 def VSHUF4I_B : LSX_I8_U<0b01110011100100>,
-                LSX_I8_SHF_DESC_BASE<"vshuf4i.b", LSX128BOpnd>;
+                LSX_I8_SHF_DESC_BASE<"vshuf4i.b", LoongArchSHF, v16i8, LSX128BOpnd>;
 
 def VSHUF4I_H : LSX_I8_U<0b01110011100101>,
-                LSX_I8_SHF_DESC_BASE<"vshuf4i.h", LSX128HOpnd>;
+                LSX_I8_SHF_DESC_BASE<"vshuf4i.h", LoongArchSHF, v8i16, LSX128HOpnd>;
 
 def VSHUF4I_W : LSX_I8_U<0b01110011100110>,
-                LSX_I8_SHF_DESC_BASE<"vshuf4i.w", LSX128WOpnd>;
+                LSX_I8_SHF_DESC_BASE<"vshuf4i.w", LoongArchSHF, v4i32, LSX128WOpnd>;
+
+def : LSXPat<(LoongArchSHF (v4f32 LSX128W:$vj), uimm8_32:$ui8),
+              (!cast<Instruction>(VSHUF4I_W) LSX128W:$vj, uimm8_32:$ui8)>;
 
 def VSHUF4I_D : LSX_I8_U<0b01110011100111>,
                 LSX_I8_SHUF_DESC_BASE_D<"vshuf4i.d", int_loongarch_lsx_vshuf4i_d, LSX128DOpnd>;

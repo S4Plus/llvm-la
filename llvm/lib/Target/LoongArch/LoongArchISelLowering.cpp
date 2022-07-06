@@ -392,6 +392,9 @@ LoongArchTargetLowering::LoongArchTargetLowering(const LoongArchTargetMachine &T
     addLSXFloatType(MVT::v4f32, &LoongArch::LSX128WRegClass);
     addLSXFloatType(MVT::v2f64, &LoongArch::LSX128DRegClass);
 
+    setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4f32, Custom);
+    setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v8f16, Custom);
+
     // f16 is a storage-only type, always promote it to f32.
     setOperationAction(ISD::SETCC, MVT::f16, Promote);
     setOperationAction(ISD::BR_CC, MVT::f16, Promote);
@@ -731,6 +734,7 @@ addLSXFloatType(MVT::SimpleValueType Ty, const TargetRegisterClass *RC) {
   setOperationAction(ISD::INSERT_VECTOR_ELT, Ty, Legal);
   setOperationAction(ISD::BUILD_VECTOR, Ty, Custom);
   setOperationAction(ISD::CONCAT_VECTORS, Ty, Legal);
+  setOperationAction(ISD::VECTOR_SHUFFLE, Ty, Custom);
 
   if (Ty == MVT::v4f32 || Ty == MVT::v2f64) {
     setOperationAction(ISD::FP_TO_SINT, Ty, Custom);
@@ -773,6 +777,7 @@ addLASXFloatType(MVT::SimpleValueType Ty, const TargetRegisterClass *RC) {
   setOperationAction(ISD::INSERT_VECTOR_ELT, Ty, Legal);
   setOperationAction(ISD::BUILD_VECTOR, Ty, Custom);
   setOperationAction(ISD::CONCAT_VECTORS, Ty, Legal);
+  setOperationAction(ISD::VECTOR_SHUFFLE, Ty, Custom);
 
   setOperationAction(ISD::FADD,  Ty, Legal);
   setOperationAction(ISD::FDIV,  Ty, Legal);
@@ -2092,7 +2097,7 @@ static SDValue lowerVECTOR_SHUFFLE_SHF(SDValue Op, EVT ResTy,
 
   SDLoc DL(Op);
   return DAG.getNode(LoongArchISD::SHF, DL, ResTy,
-                     DAG.getConstant(Imm, DL, MVT::i32), Op->getOperand(0));
+                     Op->getOperand(0), DAG.getConstant(Imm, DL, MVT::i32));
 }
 
 /// Determine whether a range fits a regular pattern of values.
