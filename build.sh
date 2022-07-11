@@ -61,12 +61,12 @@ while $CONFIG_AND_BUILD; do
     -DLLVM_ENABLE_ZLIB=ON \
     -DLLVM_ENABLE_FFI=ON \
     -DLLVM_ENABLE_RTTI=ON \
-    -DDEFAULT_SYSROOT="/home/llvm/loongarch64-linux-gnu-2021-02-09/loongarch64-linux-gnu/sysroot" \
+    -DDEFAULT_SYSROOT="/data/lmx/loongson/loongarch64-linux-gnu-2021-08-09-vector/loongarch64-linux-gnu/sysroot" \
     -DLLVM_DEFAULT_TARGET_TRIPLE="loongarch64-unknown-linux-gnu"
 
   break
 done
 
-ninja -v -j48
+ninja  -j64
 
-ninja -v install
+# ninja -v install
