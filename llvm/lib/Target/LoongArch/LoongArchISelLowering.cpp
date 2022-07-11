@@ -5402,6 +5402,39 @@ is128BitLaneRepeatedShuffleMask(MVT VT, ArrayRef<int> Mask,
   return isRepeatedShuffleMask(128, VT, Mask, RepeatedMask);
 }
 
+// Build a vector of constants.
+// Use an UNDEF node if MaskElt == -1.
+// Split 64-bit constants in the 32-bit mode.
+static SDValue getConstVector(ArrayRef<int> Values, MVT VT, SelectionDAG &DAG,
+                              const SDLoc &dl, bool IsMask = false) {
+
+  SmallVector<SDValue, 32>  Ops;
+  bool Split = false;
+
+  MVT ConstVecVT = VT;
+  unsigned NumElts = VT.getVectorNumElements();
+  bool In64BitMode = DAG.getTargetLoweringInfo().isTypeLegal(MVT::i64);
+  if (!In64BitMode && VT.getVectorElementType() == MVT::i64) {
+    ConstVecVT = MVT::getVectorVT(MVT::i32, NumElts * 2);
+    Split = true;
+  }
+
+  MVT EltVT = ConstVecVT.getVectorElementType();
+  for (unsigned i = 0; i < NumElts; ++i) {
+    bool IsUndef = Values[i] < 0 && IsMask;
+    SDValue OpNode = IsUndef ? DAG.getUNDEF(EltVT) :
+      DAG.getConstant(Values[i], dl, EltVT);
+    Ops.push_back(OpNode);
+    if (Split)
+      Ops.push_back(IsUndef ? DAG.getUNDEF(EltVT) :
+                    DAG.getConstant(0, dl, EltVT));
+  }
+  SDValue ConstsNode = DAG.getBuildVector(ConstVecVT, dl, Ops);
+  if (Split)
+    ConstsNode = DAG.getBitcast(VT, ConstsNode);
+  return ConstsNode;
+}
+
 /// Handle lowering of 8-lane 32-bit integer shuffles.
 ///
 /// This routine is only called when we have LASX and thus a reasonable
@@ -5428,6 +5461,13 @@ static SDValue lowerV8I32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
       return DAG.getNode(LoongArchISD::SHF, DL, MVT::v8i32, V1,
                          getV4LoongArchShuffleImm8ForMask(RepeatedMask, DL, DAG));
     // TODO:Use dedicated unpack instructions for masks that match their pattern.
+  }
+
+  // If the shuffle patterns aren't repeated but it is a single input, directly
+  // generate a cross-lane XVPERM.W instruction.
+  if (V2.isUndef()) {
+    SDValue XVPERMMask = getConstVector(Mask, MVT::v8i32, DAG, DL, true);
+    return DAG.getNode(LoongArchISD::XVPERM, DL, MVT::v8i32, V1, XVPERMMask);  // permute.ll:emit vpermd
   }
   return SDValue();
 }
@@ -5456,7 +5496,12 @@ static SDValue lowerV8F32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
     // TODO:Use dedicated unpack instructions for masks that match their pattern.
   }
 
-  // TODO:Try to create an in-lane repeating shuffle mask and then shuffle the
+  // If the shuffle patterns aren't repeated but it is a single input, directly
+  // generate a cross-lane XVPERM.W instruction.
+  if (V2.isUndef()) {
+    SDValue XVPERMMask = getConstVector(Mask, MVT::v8i32, DAG, DL, true);
+    return DAG.getNode(LoongArchISD::XVPERM, DL, MVT::v8f32, V1, XVPERMMask);  
+  }
   return SDValue();
 }
 

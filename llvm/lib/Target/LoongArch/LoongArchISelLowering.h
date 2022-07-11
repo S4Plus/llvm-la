@@ -124,6 +124,7 @@ class TargetRegisterClass;
       VROR,
       VRORI,
       XVPICKVE,
+      XVPERM,
       XVPERMI,
       XVSHUF4I,
       REVBD,

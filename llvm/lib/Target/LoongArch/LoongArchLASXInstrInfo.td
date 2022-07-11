@@ -13,6 +13,11 @@
 def SDT_SHUFF_2OP_IMM : SDTypeProfile<1, 2, [SDTCisVec<0>,
                                  SDTCisSameAs<0,1>, SDTCisVT<2, i32>]>;
 
+def SDT_SHUFF_3OP : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisInt<2>,
+                                                SDTCisSameNumEltsAs<0,2>,
+                                                SDTCisSameSizeAs<0,2>,
+                                                SDTCisSameAs<0,1>]>;
+
 def SDT_ILV_2OP : SDTypeProfile<1, 2, [SDTCisVec<0>,
                                    SDTCisSameAs<0, 1>, SDTCisSameAs<1, 2>]>;
 
@@ -39,6 +44,8 @@ def LoongArchXVSHUFI : SDNode<"LoongArchISD::XVSHFI", SDT_XVSHFI>;
 def LoongArchXVSELI  : SDNode<"LoongArchISD::XVSELI", SDT_XVSHFI>;
 
 def LoongArchXVPERMI  : SDNode<"LoongArchISD::XVPERMI", SDT_SHUFF_2OP_IMM>;
+
+def LoongArchXVPERM : SDNode<"LoongArchISD::XVPERM", SDT_SHUFF_3OP>;
 
 def LoongArchXVPICKEV : SDNode<"LoongArchISD::VPICKEV", SDT_ILV_2OP>;
 
@@ -348,6 +355,17 @@ class LASX_3R_DESC_BASE<string instr_asm, SDPatternOperator OpNode,
   dag InOperandList = (ins ROXJ:$xj, ROXK:$xk);
   string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $xk");
   list<dag> Pattern = [(set ROXD:$xd, (OpNode ROXJ:$xj, ROXK:$xk))];
+}
+
+class LASX_PERM<string instr_asm, SDPatternOperator OpNode,
+                       ValueType OpVT,
+                       RegisterOperand ROXD, RegisterOperand ROXJ = ROXD,
+                       RegisterOperand ROXK = ROXD> {
+  dag OutOperandList = (outs ROXD:$xd);
+  dag InOperandList = (ins ROXJ:$xj, ROXK:$xk);
+  string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $xk");
+  list<dag> Pattern = [(set ROXD:$xd, 
+                      (OpVT (OpNode ROXJ:$xj, ROXK:$xk)))];
 }
 
 class LASX_3R_ILV_DESC_BASE<string instr_asm, SDPatternOperator OpNode, 
@@ -2776,10 +2794,11 @@ def XVSHUF_W : LASX_3R<0b01110101011110110>,
 def XVSHUF_D : LASX_3R<0b01110101011110111>,
                LASX_3R_VSHF_DESC_BASE<"xvshuf.d", LASX256DOpnd>;
 
-
 def XVPERM_W : LASX_3R<0b01110101011111010>,
-               LASX_3R_DESC_BASE<"xvperm.w", int_loongarch_lasx_xvperm_w, LASX256WOpnd>;
+               LASX_PERM<"xvperm.w", LoongArchXVPERM, v8i32, LASX256WOpnd>;
 
+def : LASXPat<(LoongArchXVPERM  (v8f32 LASX256W:$a), (v8i32 LASX256W:$i256)),
+              (!cast<Instruction>(XVPERM_W)  LASX256W:$a, LASX256W:$i256)>;
 
 def XVSEQI_B : LASX_I5<0b01110110100000000>,
                LASX_I5_SETCC_DESC_BASE_Intrinsic<"xvseqi.b", int_loongarch_lasx_xvseqi_b, simm5_32, immSExt5, LASX256BOpnd>;
