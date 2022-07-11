@@ -27,6 +27,8 @@ def SDT_SHF : SDTypeProfile<1, 2, [SDTCisVec<0>,
                                    SDTCisVT<2, i32>, SDTCisSameAs<0, 1>]>;
 def SDT_ILV : SDTypeProfile<1, 2, [SDTCisInt<0>, SDTCisVec<0>,
                                    SDTCisSameAs<0, 1>, SDTCisSameAs<1, 2>]>;
+def SDT_VPICKEVOD : SDTypeProfile<1, 2, [SDTCisVec<0>,
+                                   SDTCisSameAs<0, 1>, SDTCisSameAs<1, 2>]>;
 def SDTVABSD : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisSameAs<0, 1>,
                                     SDTCisSameAs<0, 2>, SDTCisVT<3, i32>]>;
 
@@ -45,8 +47,8 @@ def LoongArchVPACKEV : SDNode<"LoongArchISD::VPACKEV", SDT_ILV>;
 def LoongArchVPACKOD : SDNode<"LoongArchISD::VPACKOD", SDT_ILV>;
 def LoongArchVILVH  : SDNode<"LoongArchISD::VILVH",  SDT_ILV>;
 def LoongArchVILVL  : SDNode<"LoongArchISD::VILVL",  SDT_ILV>;
-def LoongArchVPICKEV : SDNode<"LoongArchISD::VPICKEV", SDT_ILV>;
-def LoongArchVPICKOD : SDNode<"LoongArchISD::VPICKOD", SDT_ILV>;
+def LoongArchVPICKEV : SDNode<"LoongArchISD::VPICKEV", SDT_VPICKEVOD>;
+def LoongArchVPICKOD : SDNode<"LoongArchISD::VPICKOD", SDT_VPICKEVOD>;
 def LoongArchVABSD : SDNode<"LoongArchISD::VABSD", SDTVABSD>;
 def LoongArchUVABSD : SDNode<"LoongArchISD::UVABSD", SDTVABSD>;
 
@@ -784,6 +786,15 @@ class LSX_3R_DESC_BASE<string instr_asm, SDPatternOperator OpNode,
   dag InOperandList = (ins ROVJ:$vj, ROVK:$vk);
   string AsmString = !strconcat(instr_asm, "\t$vd, $vj, $vk");
   list<dag> Pattern = [(set ROVD:$vd, (OpNode ROVJ:$vj, ROVK:$vk))];
+}
+
+class LSX_3R_DESC_BASE_VPICKEVOD<string instr_asm, SDPatternOperator OpNode,
+                       ValueType OpVT, RegisterOperand ROVD, RegisterOperand ROVJ = ROVD,
+                       RegisterOperand ROVK = ROVD> {
+  dag OutOperandList = (outs ROVD:$vd);
+  dag InOperandList = (ins ROVJ:$vj, ROVK:$vk);
+  string AsmString = !strconcat(instr_asm, "\t$vd, $vj, $vk");
+  list<dag> Pattern = [(set ROVD:$vd, (OpVT (OpNode ROVJ:$vj, ROVK:$vk)))];
 }
 
 class LSX_3RN_DESC_BASE<string instr_asm, RegisterOperand ROVD,
@@ -2197,30 +2208,40 @@ def VILVH_D : LSX_3R<0b01110001000111011>,
 
 
 def VPICKEV_B : LSX_3R<0b01110001000111100>,
-                LSX_3R_DESC_BASE<"vpickev.b", LoongArchVPICKEV, LSX128BOpnd>;
+                LSX_3R_DESC_BASE_VPICKEVOD<"vpickev.b", LoongArchVPICKEV, v16i8, LSX128BOpnd>;
 
 def VPICKEV_H : LSX_3R<0b01110001000111101>,
-                LSX_3R_DESC_BASE<"vpickev.h", LoongArchVPICKEV, LSX128HOpnd>;
+                LSX_3R_DESC_BASE_VPICKEVOD<"vpickev.h", LoongArchVPICKEV, v8i16, LSX128HOpnd>;
 
 def VPICKEV_W : LSX_3R<0b01110001000111110>,
-                LSX_3R_DESC_BASE<"vpickev.w", LoongArchVPICKEV, LSX128WOpnd>;
+                LSX_3R_DESC_BASE_VPICKEVOD<"vpickev.w", LoongArchVPICKEV, v4i32, LSX128WOpnd>;
 
 def VPICKEV_D : LSX_3R<0b01110001000111111>,
-                LSX_3R_DESC_BASE<"vpickev.d", LoongArchVPICKEV, LSX128DOpnd>;
+                LSX_3R_DESC_BASE_VPICKEVOD<"vpickev.d", LoongArchVPICKEV, v2i64, LSX128DOpnd>;
 
+def : LSXPat<(LoongArchVPICKEV (v4f32 LSX128W:$vj), (v4f32 LSX128W:$vk)),
+              (!cast<Instruction>(VPICKEV_W) LSX128W:$vj, LSX128W:$vk)>;
+
+def : LSXPat<(LoongArchVPICKEV (v2f64 LSX128D:$vj), (v2f64 LSX128D:$vk)),
+              (!cast<Instruction>(VPICKEV_D) LSX128D:$vj, LSX128D:$vk)>;
 
 def VPICKOD_B : LSX_3R<0b01110001001000000>,
-                LSX_3R_DESC_BASE<"vpickod.b", LoongArchVPICKOD, LSX128BOpnd>;
+                LSX_3R_DESC_BASE_VPICKEVOD<"vpickod.b", LoongArchVPICKOD, v16i8, LSX128BOpnd>;
 
 def VPICKOD_H : LSX_3R<0b01110001001000001>,
-                LSX_3R_DESC_BASE<"vpickod.h", LoongArchVPICKOD, LSX128HOpnd>;
+                LSX_3R_DESC_BASE_VPICKEVOD<"vpickod.h", LoongArchVPICKOD, v8i16, LSX128HOpnd>;
 
 def VPICKOD_W : LSX_3R<0b01110001001000010>,
-                LSX_3R_DESC_BASE<"vpickod.w", LoongArchVPICKOD, LSX128WOpnd>;
+                LSX_3R_DESC_BASE_VPICKEVOD<"vpickod.w", LoongArchVPICKOD, v4i32, LSX128WOpnd>;
 
 def VPICKOD_D : LSX_3R<0b01110001001000011>,
-                LSX_3R_DESC_BASE<"vpickod.d", LoongArchVPICKOD, LSX128DOpnd>;
+                LSX_3R_DESC_BASE_VPICKEVOD<"vpickod.d", LoongArchVPICKOD, v2i64, LSX128DOpnd>;
 
+def : LSXPat<(LoongArchVPICKOD (v4f32 LSX128W:$vj), (v4f32 LSX128W:$vk)),
+              (!cast<Instruction>(VPICKOD_W) LSX128W:$vj, LSX128W:$vk)>;
+
+def : LSXPat<(LoongArchVPICKOD (v2f64 LSX128D:$vj), (v2f64 LSX128D:$vk)),
+              (!cast<Instruction>(VPICKOD_D) LSX128D:$vj, LSX128D:$vk)>;
 
 def VREPLVE_B : LSX_3R_1GP<0b01110001001000100>,
                 LSX_3R_VREPLVE_DESC_BASE<"vreplve.b", vsplati8_elt, LSX128BOpnd>;
