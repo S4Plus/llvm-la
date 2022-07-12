@@ -13,8 +13,8 @@
 def SDT_SHUFF_2OP_IMM : SDTypeProfile<1, 2, [SDTCisVec<0>,
                                  SDTCisSameAs<0,1>, SDTCisVT<2, i32>]>;
 
-def SDT_ILV_2OP : SDTypeProfile<1, 2, [SDTCisVec<0>,
-                                   SDTCisSameAs<0, 1>, SDTCisSameAs<1, 2>]>;
+// def SDT_ILV_2OP : SDTypeProfile<1, 2, [SDTCisVec<0>,
+//                                    SDTCisSameAs<0, 1>, SDTCisSameAs<1, 2>]>;
 
 def SDT_XVSHFI : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisVec<0>,
                                       SDTCisSameAs<0, 1>, SDTCisSameAs<1, 2>,
@@ -40,9 +40,9 @@ def LoongArchXVSELI  : SDNode<"LoongArchISD::XVSELI", SDT_XVSHFI>;
 
 def LoongArchXVPERMI  : SDNode<"LoongArchISD::XVPERMI", SDT_SHUFF_2OP_IMM>;
 
-def LoongArchXVPICKEV : SDNode<"LoongArchISD::VPICKEV", SDT_ILV_2OP>;
+// def LoongArchVPICKEV : SDNode<"LoongArchISD::VPICKEV", SDT_ILV_2OP>;
 
-def LoongArchXVPICKOD : SDNode<"LoongArchISD::VPICKOD", SDT_ILV_2OP>;
+// def LoongArchVPICKOD : SDNode<"LoongArchISD::VPICKOD", SDT_ILV_2OP>;
 
 def LoongArchXVBROADCAST : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVBROADCAST>;
 
@@ -2433,30 +2433,40 @@ def XVBITREV_D : LASX_3R<0b01110101000100011>,
 
 
 def XVPACKEV_B : LASX_3R<0b01110101000101100>,
-                 LASX_3R_DESC_BASE<"xvpackev.b", LoongArchVPACKEV, LASX256BOpnd>;
+                 LASX_3R_ILV_DESC_BASE<"xvpackev.b", LoongArchVPACKEV, v32i8, LASX256BOpnd>;
 
 def XVPACKEV_H : LASX_3R<0b01110101000101101>,
-                 LASX_3R_DESC_BASE<"xvpackev.h", LoongArchVPACKEV, LASX256HOpnd>;
+                 LASX_3R_ILV_DESC_BASE<"xvpackev.h", LoongArchVPACKEV, v16i16, LASX256HOpnd>;
 
 def XVPACKEV_W : LASX_3R<0b01110101000101110>,
-                 LASX_3R_DESC_BASE<"xvpackev.w", LoongArchVPACKEV, LASX256WOpnd>;
+                 LASX_3R_ILV_DESC_BASE<"xvpackev.w", LoongArchVPACKEV, v8i32, LASX256WOpnd>;
 
 def XVPACKEV_D : LASX_3R<0b01110101000101111>,
-                 LASX_3R_DESC_BASE<"xvpackev.d", LoongArchVPACKEV, LASX256DOpnd>;
+                 LASX_3R_ILV_DESC_BASE<"xvpackev.d", LoongArchVPACKEV, v4i64, LASX256DOpnd>;
 
+def : LASXPat<(LoongArchVPACKEV (v8f32 LASX256W:$xj), (v8f32 LASX256W:$xk)),
+              (!cast<Instruction>(XVPACKEV_W) LASX256W:$xj, LASX256W:$xk)>;
+
+def : LASXPat<(LoongArchVPACKEV (v4f64 LASX256D:$xj), (v4f64 LASX256D:$xk)),
+              (!cast<Instruction>(XVPACKEV_D) LASX256D:$xj, LASX256D:$xk)>;
 
 def XVPACKOD_B : LASX_3R<0b01110101000110000>,
-                 LASX_3R_DESC_BASE<"xvpackod.b", LoongArchVPACKOD, LASX256BOpnd>;
+                 LASX_3R_ILV_DESC_BASE<"xvpackod.b", LoongArchVPACKOD, v32i8, LASX256BOpnd>;
 
 def XVPACKOD_H : LASX_3R<0b01110101000110001>,
-                 LASX_3R_DESC_BASE<"xvpackod.h", LoongArchVPACKOD, LASX256HOpnd>;
+                 LASX_3R_ILV_DESC_BASE<"xvpackod.h", LoongArchVPACKOD, v16i16, LASX256HOpnd>;
 
 def XVPACKOD_W : LASX_3R<0b01110101000110010>,
-                 LASX_3R_DESC_BASE<"xvpackod.w", LoongArchVPACKOD, LASX256WOpnd>;
+                 LASX_3R_ILV_DESC_BASE<"xvpackod.w", LoongArchVPACKOD, v8i32, LASX256WOpnd>;
 
 def XVPACKOD_D : LASX_3R<0b01110101000110011>,
-                 LASX_3R_DESC_BASE<"xvpackod.d", LoongArchVPACKOD, LASX256DOpnd>;
+                 LASX_3R_ILV_DESC_BASE<"xvpackod.d", LoongArchVPACKOD, v4i64, LASX256DOpnd>;
 
+def : LASXPat<(LoongArchVPACKOD (v8f32 LASX256W:$xj), (v8f32 LASX256W:$xk)),
+              (!cast<Instruction>(XVPACKOD_W) LASX256W:$xj, LASX256W:$xk)>;
+
+def : LASXPat<(LoongArchVPACKOD (v4f64 LASX256D:$xj), (v4f64 LASX256D:$xk)),
+              (!cast<Instruction>(XVPACKOD_D) LASX256D:$xj, LASX256D:$xk)>;
 
 def XVILVL_B : LASX_3R<0b01110101000110100>,
                LASX_3R_DESC_BASE<"xvilvl.b", LoongArchVILVL, LASX256BOpnd>;
@@ -2485,48 +2495,48 @@ def XVILVH_D : LASX_3R<0b01110101000111011>,
 
 
 def XVPICKEV_B : LASX_3R<0b01110101000111100>,
-                 LASX_3R_ILV_DESC_BASE<"xvpickev.b", LoongArchXVPICKEV, 
+                 LASX_3R_ILV_DESC_BASE<"xvpickev.b", LoongArchVPICKEV, 
                  v32i8, LASX256BOpnd>;
 
 def XVPICKEV_H : LASX_3R<0b01110101000111101>,
-                 LASX_3R_ILV_DESC_BASE<"xvpickev.h", LoongArchXVPICKEV, 
+                 LASX_3R_ILV_DESC_BASE<"xvpickev.h", LoongArchVPICKEV, 
                  v16i16, LASX256HOpnd>;
 
 def XVPICKEV_W : LASX_3R<0b01110101000111110>,
-                 LASX_3R_ILV_DESC_BASE<"xvpickev.w", LoongArchXVPICKEV, 
+                 LASX_3R_ILV_DESC_BASE<"xvpickev.w", LoongArchVPICKEV, 
                  v8i32, LASX256WOpnd>;
 
 def XVPICKEV_D : LASX_3R<0b01110101000111111>,
-                 LASX_3R_ILV_DESC_BASE<"xvpickev.d", LoongArchXVPICKEV, 
+                 LASX_3R_ILV_DESC_BASE<"xvpickev.d", LoongArchVPICKEV, 
                  v4i64, LASX256DOpnd>;
 
-def : LASXPat<(LoongArchXVPICKEV (v8f32 LASX256W:$xj), (v8f32 LASX256W:$xk)),
+def : LASXPat<(LoongArchVPICKEV (v8f32 LASX256W:$xj), (v8f32 LASX256W:$xk)),
               (!cast<Instruction>(XVPICKEV_W) LASX256W:$xj, LASX256W:$xk)>;
 
-def : LASXPat<(LoongArchXVPICKEV (v4f64 LASX256D:$xj), (v4f64 LASX256D:$xk)),
+def : LASXPat<(LoongArchVPICKEV (v4f64 LASX256D:$xj), (v4f64 LASX256D:$xk)),
               (!cast<Instruction>(XVPICKEV_D) LASX256D:$xj, LASX256D:$xk)>;
 
 
 def XVPICKOD_B : LASX_3R<0b01110101001000000>,
-                 LASX_3R_ILV_DESC_BASE<"xvpickod.b", LoongArchXVPICKOD, 
+                 LASX_3R_ILV_DESC_BASE<"xvpickod.b", LoongArchVPICKOD, 
                  v32i8, LASX256BOpnd>;
 
 def XVPICKOD_H : LASX_3R<0b01110101001000001>,
-                 LASX_3R_ILV_DESC_BASE<"xvpickod.h", LoongArchXVPICKOD, 
+                 LASX_3R_ILV_DESC_BASE<"xvpickod.h", LoongArchVPICKOD, 
                  v16i16, LASX256HOpnd>;
 
 def XVPICKOD_W : LASX_3R<0b01110101001000010>,
-                 LASX_3R_ILV_DESC_BASE<"xvpickod.w", LoongArchXVPICKOD, 
+                 LASX_3R_ILV_DESC_BASE<"xvpickod.w", LoongArchVPICKOD, 
                  v8i32, LASX256WOpnd>;
 
 def XVPICKOD_D : LASX_3R<0b01110101001000011>,
-                 LASX_3R_ILV_DESC_BASE<"xvpickod.d", LoongArchXVPICKOD, 
+                 LASX_3R_ILV_DESC_BASE<"xvpickod.d", LoongArchVPICKOD, 
                  v4i64, LASX256DOpnd>;
 
-def : LASXPat<(LoongArchXVPICKOD (v8f32 LASX256W:$xj), (v8f32 LASX256W:$xk)),
+def : LASXPat<(LoongArchVPICKOD (v8f32 LASX256W:$xj), (v8f32 LASX256W:$xk)),
               (!cast<Instruction>(XVPICKOD_W) LASX256W:$xj, LASX256W:$xk)>;
 
-def : LASXPat<(LoongArchXVPICKOD (v4f64 LASX256D:$xj), (v4f64 LASX256D:$xk)),
+def : LASXPat<(LoongArchVPICKOD (v4f64 LASX256D:$xj), (v4f64 LASX256D:$xk)),
               (!cast<Instruction>(XVPICKOD_D) LASX256D:$xj, LASX256D:$xk)>;
 
 def XVREPLVE_B : LASX_3R_1GP<0b01110101001000100>,
