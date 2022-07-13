@@ -2488,21 +2488,21 @@ static SDValue lowerVECTOR_SHUFFLE_XVILVL(SDValue Op, EVT ResTy,
   SDValue Xk;
   const auto &Begin = Indices.begin();
   const auto &End = Indices.end();
-  unsigned HalfSize = Indices.size()/2;
+  unsigned HalfSize = Indices.size() / 2;
 
-  if (fitsRegularPattern<int>(Begin, 2, End, 0, 1)
+  if (fitsRegularPattern<int>(Begin, 2, End - HalfSize, 0, 1)
       && fitsRegularPattern<int>(Begin + HalfSize, 2, End, HalfSize, 1))
     Xj = Op->getOperand(0);
-  else if (fitsRegularPattern<int>(Begin, 2, End, Indices.size(), 1)
+  else if (fitsRegularPattern<int>(Begin, 2, End - HalfSize, Indices.size(), 1)
            && fitsRegularPattern<int>(Begin + HalfSize, 2, End, Indices.size() + HalfSize, 1))
     Xj = Op->getOperand(1);
   else
     return SDValue();
 
-  if (fitsRegularPattern<int>(Begin + 1, 2, End, 0, 1)
+  if (fitsRegularPattern<int>(Begin + 1, 2, End - HalfSize, 0, 1)
       && fitsRegularPattern<int>(Begin + 1 + HalfSize, 2, End,  HalfSize, 1))
     Xk = Op->getOperand(0);
-  else if (fitsRegularPattern<int>(Begin + 1, 2, End, Indices.size(), 1)
+  else if (fitsRegularPattern<int>(Begin + 1, 2, End - HalfSize, Indices.size(), 1)
            && fitsRegularPattern<int>(Begin + 1 + HalfSize, 2, End, Indices.size() + HalfSize, 1))
     Xk = Op->getOperand(1);
   else
@@ -2523,20 +2523,20 @@ static SDValue lowerVECTOR_SHUFFLE_XVILVH(SDValue Op, EVT ResTy,
   const auto &Begin = Indices.begin();
   const auto &End = Indices.end();
 
-  if (fitsRegularPattern<int>(Begin, 2, End, HalfSize - LeftSize, 1)
-      && fitsRegularPattern<int>(Begin + HalfSize + LeftSize, 2, End, HalfSize + LeftSize, 1))
+  if (fitsRegularPattern<int>(Begin, 2, End - HalfSize, HalfSize - LeftSize, 1)
+      && fitsRegularPattern<int>(Begin + HalfSize, 2, End, HalfSize + LeftSize, 1))
     Xj = Op->getOperand(0);
-  else if (fitsRegularPattern<int>(Begin, 2, End, Indices.size() + HalfSize - LeftSize, 1)
-           && fitsRegularPattern<int>(Begin + HalfSize + LeftSize, 2, End, Indices.size() + HalfSize + LeftSize, 1))
+  else if (fitsRegularPattern<int>(Begin, 2, End - HalfSize, Indices.size() + HalfSize - LeftSize, 1)
+           && fitsRegularPattern<int>(Begin + HalfSize, 2, End, Indices.size() + HalfSize + LeftSize, 1))
     Xj = Op->getOperand(1);
   else
     return SDValue();
 
-  if (fitsRegularPattern<int>(Begin + 1, 2, End, HalfSize, 1)
-      && fitsRegularPattern<int>(Begin + 1 + HalfSize + LeftSize, 2, End, HalfSize + LeftSize, 1))
+  if (fitsRegularPattern<int>(Begin + 1, 2, End - HalfSize, HalfSize - LeftSize, 1)
+      && fitsRegularPattern<int>(Begin + 1 + HalfSize, 2, End, HalfSize + LeftSize, 1))
     Xk = Op->getOperand(0);
-  else if (fitsRegularPattern<int>(Begin + 1, 2, End, Indices.size() + HalfSize, 1)
-           && fitsRegularPattern<int>(Begin + 1 + HalfSize + LeftSize, 2, End, Indices.size() + HalfSize + LeftSize, 1))
+  else if (fitsRegularPattern<int>(Begin + 1, 2, End - HalfSize, Indices.size() + HalfSize - LeftSize, 1)
+           && fitsRegularPattern<int>(Begin + 1 + HalfSize, 2, End, Indices.size() + HalfSize + LeftSize, 1))
     Xk = Op->getOperand(1);
   else
     return SDValue();
