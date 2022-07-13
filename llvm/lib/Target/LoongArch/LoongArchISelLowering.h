@@ -332,7 +332,8 @@ class TargetRegisterClass;
     SDValue lowerFP_TO_SINT(SDValue Op, SelectionDAG &DAG) const;
     /// Lower VECTOR_SHUFFLE into one of a number of instructions
     /// depending on the indices in the shuffle.
-    SDValue lowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
+    SDValue lowerVECTOR_SHUFFLE(SDValue Op, const LoongArchSubtarget 
+                          &SubtargetSelectionDAG, SelectionDAG &DAG) const;
     SDValue lowerBRCOND(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerConstantPool(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;

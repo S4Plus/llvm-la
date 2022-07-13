@@ -2840,7 +2840,7 @@ LowerOperation(SDValue Op, SelectionDAG &DAG) const
   case ISD::EXTRACT_VECTOR_ELT: return lowerEXTRACT_VECTOR_ELT(Op, DAG);
   case ISD::INSERT_VECTOR_ELT:  return lowerINSERT_VECTOR_ELT(Op, DAG);
   case ISD::BUILD_VECTOR:       return lowerBUILD_VECTOR(Op, DAG);
-  case ISD::VECTOR_SHUFFLE:     return lowerVECTOR_SHUFFLE(Op, DAG);
+  case ISD::VECTOR_SHUFFLE:     return lowerVECTOR_SHUFFLE(Op, Subtarget, DAG);
   case ISD::UINT_TO_FP:         return lowerUINT_TO_FP(Op, DAG);
   case ISD::SINT_TO_FP:         return lowerSINT_TO_FP(Op, DAG);
   case ISD::FP_TO_UINT:         return lowerFP_TO_UINT(Op, DAG);
@@ -5324,15 +5324,16 @@ static SDValue getV4LoongArchShuffleImm8ForMask(ArrayRef<int> Mask, const SDLoc 
 static SDValue lowerV4F64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
                                       //  const APInt &Zeroable,
                                        SDValue V1, SDValue V2,
-                                      //  const X86Subtarget &Subtarget,
+                                       const LoongArchSubtarget &Subtarget,
                                        SelectionDAG &DAG) {
   assert(V1.getSimpleValueType() == MVT::v4f64 && "Bad operand type!");
   assert(V2.getSimpleValueType() == MVT::v4f64 && "Bad operand type!");
   assert(Mask.size() == 4 && "Unexpected mask size for v4 shuffle!");
   // With LASX we have direct support for this permutation.
-  // if (Subtarget.hasLASX())
+  if (Subtarget.hasLASX())
     return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4f64, V1,
                          getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
+  return SDValue();
 
 }
 
@@ -5343,17 +5344,18 @@ static SDValue lowerV4F64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
 static SDValue lowerV4I64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
                                       //  const APInt &Zeroable,
                                        SDValue V1, SDValue V2,
-                                      //  const X86Subtarget &Subtarget,
+                                       const LoongArchSubtarget &Subtarget,
                                        SelectionDAG &DAG) {
   assert(V1.getSimpleValueType() == MVT::v4i64 && "Bad operand type!");
   assert(V2.getSimpleValueType() == MVT::v4i64 && "Bad operand type!");
   assert(Mask.size() == 4 && "Unexpected mask size for v4 shuffle!");
 
   // With LASX we have direct support for this permutation.
-  // if (Subtarget.hasLASX())
+  if (Subtarget.hasLASX())
     return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4i64, V1,
                          getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
-
+  
+  return SDValue();
 }
 
 /// Test whether a shuffle mask is equivalent within each sub-lane.
@@ -5442,7 +5444,7 @@ static SDValue getConstVector(ArrayRef<int> Values, MVT VT, SelectionDAG &DAG,
 static SDValue lowerV8I32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
                                       //  const APInt &Zeroable,
                                        SDValue V1, SDValue V2,
-                                      //  const X86Subtarget &Subtarget,
+                                       const LoongArchSubtarget &Subtarget,
                                        SelectionDAG &DAG) {
   assert(V1.getSimpleValueType() == MVT::v8i32 && "Bad operand type!");
   assert(V2.getSimpleValueType() == MVT::v8i32 && "Bad operand type!");
@@ -5475,7 +5477,7 @@ static SDValue lowerV8I32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
 static SDValue lowerV8F32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
                                       //  const APInt &Zeroable,
                                        SDValue V1, SDValue V2,
-                                      //  const X86Subtarget &Subtarget,
+                                       const LoongArchSubtarget &Subtarget,
                                        SelectionDAG &DAG) {
   assert(V1.getSimpleValueType() == MVT::v8f32 && "Bad operand type!");
   assert(V2.getSimpleValueType() == MVT::v8f32 && "Bad operand type!");
@@ -5513,24 +5515,24 @@ static SDValue lowerV8F32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
 static SDValue lower256Bit_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
                                         MVT VT, SDValue V1, SDValue V2,
                                         // const APInt &Zeroable,
-                                        // const X86Subtarget &Subtarget,
+                                        const LoongArchSubtarget &Subtarget,
                                         SelectionDAG &DAG) {
   switch (VT.SimpleTy) {
   case MVT::v4f64:
-    return lowerV4F64_VECTOR_SHUFFLE(DL, Mask, V1, V2, DAG);
+    return lowerV4F64_VECTOR_SHUFFLE(DL, Mask, V1, V2, Subtarget, DAG);
   case MVT::v4i64:
-    return lowerV4I64_VECTOR_SHUFFLE(DL, Mask, V1, V2, DAG);
+    return lowerV4I64_VECTOR_SHUFFLE(DL, Mask, V1, V2, Subtarget, DAG);
   case MVT::v8f32:
-    return lowerV8F32_VECTOR_SHUFFLE(DL, Mask, V1, V2, DAG);
+    return lowerV8F32_VECTOR_SHUFFLE(DL, Mask, V1, V2, Subtarget, DAG);
   case MVT::v8i32:
-    return lowerV8I32_VECTOR_SHUFFLE(DL, Mask, V1, V2, DAG);
+    return lowerV8I32_VECTOR_SHUFFLE(DL, Mask, V1, V2, Subtarget, DAG);
   // case MVT::v16i16:
   //   return lowerV16I16_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
   // case MVT::v32i8:
   //   return lowerV32I8_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
 
   default:
-    llvm_unreachable("Not a valid 256-bit x86 vector type!");
+    llvm_unreachable("Not a valid 256-bit LoongArch vector type!");
   }
 
 
@@ -5541,8 +5543,8 @@ static SDValue lower256Bit_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
 
 // Lower VECTOR_SHUFFLE into one of a number of instructions depending on the
 // indices in the shuffle.
-SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
-                                                  SelectionDAG &DAG) const {
+SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op, 
+              const LoongArchSubtarget &Subtarget, SelectionDAG &DAG) const {
   ShuffleVectorSDNode *Node = cast<ShuffleVectorSDNode>(Op);
   EVT ResTy = Op->getValueType(0);
   ArrayRef<int> Mask = Node->getMask();
@@ -5620,7 +5622,7 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
   if (VT.is256BitVector()){
     SDValue Result;
     if(Result = lower256Bit_VECTOR_SHUFFLE(DL, Mask, VT, Op1, Op2,
-                                    DAG))
+                                    Subtarget,DAG))
       return Result;
   }
 
