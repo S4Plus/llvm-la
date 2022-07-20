@@ -23,6 +23,8 @@ def SDT_VFSetCC : SDTypeProfile<1, 3, [SDTCisInt<0>,
 def SDT_VSHF : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisVec<0>,
                                     SDTCisInt<1>, SDTCisVec<1>,
                                     SDTCisSameAs<0, 2>, SDTCisSameAs<2, 3>]>;
+def SDT_VSHUF : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisVec<1>,
+                                    SDTCisSameAs<0, 2>, SDTCisSameAs<0, 1>, SDTCisSameAs<2, 3>]>;
 def SDT_SHF : SDTypeProfile<1, 2, [SDTCisVec<0>,
                                    SDTCisVT<2, i32>, SDTCisSameAs<0, 1>]>;
 def SDT_ILV : SDTypeProfile<1, 2, [SDTCisVec<0>,
@@ -40,6 +42,7 @@ def LoongArchVAnyZero : SDNode<"LoongArchISD::VANY_ZERO", SDT_LoongArchVecCond>;
 def LoongArchVNOR : SDNode<"LoongArchISD::VNOR", SDTIntBinOp,
                       [SDNPCommutative, SDNPAssociative]>;
 def LoongArchVSHF : SDNode<"LoongArchISD::VSHF", SDT_VSHF>;
+def LoongArchVSHUF : SDNode<"LoongArchISD::VSHF", SDT_VSHUF>;
 def LoongArchSHF : SDNode<"LoongArchISD::SHF", SDT_SHF>;
 def LoongArchVPACKEV : SDNode<"LoongArchISD::VPACKEV", SDT_ILV>;
 def LoongArchVPACKOD : SDNode<"LoongArchISD::VPACKOD", SDT_ILV>;
@@ -856,14 +859,15 @@ class LSX_3RF_DESC_BASE1<string instr_asm, SDPatternOperator OpNode,
                         RegisterOperand ROVK> :
   LSX_3R_DESC_BASE1<instr_asm, OpNode, ROVD, ROVJ, ROVK>;
 
-class LSX_3R_VSHF_DESC_BASE<string instr_asm, RegisterOperand ROVD,
+class LSX_3R_VSHF_DESC_BASE<string instr_asm, SDPatternOperator OpNode,
+                            ValueType OpVT, RegisterOperand ROVD,
                             RegisterOperand ROVJ = ROVD,
                             RegisterOperand ROVK = ROVD> {
   dag OutOperandList = (outs ROVD:$vd);
   dag InOperandList = (ins ROVD:$vd_in, ROVJ:$vj, ROVK:$vk);
   string AsmString = !strconcat(instr_asm, "\t$vd, $vj, $vk");
-  list<dag> Pattern = [(set ROVD:$vd, (LoongArchVSHF ROVD:$vd_in, ROVJ:$vj,
-                                       ROVK:$vk))];
+  list<dag> Pattern = [(set ROVD:$vd, (OpVT (OpNode ROVD:$vd_in, ROVJ:$vj,
+                                       ROVK:$vk)))];
   string Constraints = "$vd = $vd_in";
 }
 
@@ -873,7 +877,7 @@ class LSX_3R_4R_VSHF_DESC_BASE<string instr_asm, RegisterOperand ROVD,
   dag OutOperandList = (outs ROVD:$vd);
   dag InOperandList = (ins ROVJ:$vj, ROVK:$vk, ROVD:$va);
   string AsmString = !strconcat(instr_asm, "\t$vd, $vj, $vk, $va");
-  list<dag> Pattern = [(set ROVD:$vd, (LoongArchVSHF ROVD:$va, ROVJ:$vj,
+  list<dag> Pattern = [(set ROVD:$vd, (LoongArchVSHUF ROVD:$va, ROVJ:$vj,
                                        ROVK:$vk))];
 }
 
@@ -2411,14 +2415,19 @@ def VFMINA_D : LSX_3R<0b01110001010000110>,
 
 
 def VSHUF_H : LSX_3R<0b01110001011110101>,
-              LSX_3R_VSHF_DESC_BASE<"vshuf.h", LSX128HOpnd>;
+              LSX_3R_VSHF_DESC_BASE<"vshuf.h", LoongArchVSHUF, v8i16, LSX128HOpnd>;
 
 def VSHUF_W : LSX_3R<0b01110001011110110>,
-              LSX_3R_VSHF_DESC_BASE<"vshuf.w", LSX128WOpnd>;
+              LSX_3R_VSHF_DESC_BASE<"vshuf.w", LoongArchVSHUF, v4i32, LSX128WOpnd>;
 
 def VSHUF_D : LSX_3R<0b01110001011110111>,
-              LSX_3R_VSHF_DESC_BASE<"vshuf.d", LSX128DOpnd>;
+              LSX_3R_VSHF_DESC_BASE<"vshuf.d", LoongArchVSHUF, v2i64, LSX128DOpnd>;
 
+def : LSXPat<(LoongArchVSHUF (v4f32 LSX128W:$vj), (v4f32 LSX128W:$vk), (v4f32 LSX128W:$vd)),
+              (!cast<Instruction>(VSHUF_W) LSX128W:$vj, LSX128W:$vk, LSX128W:$vd)>;
+
+def : LSXPat<(LoongArchVSHUF (v2f64 LSX128D:$vj), (v2f64 LSX128D:$vk), (v2f64 LSX128D:$vd)),
+              (!cast<Instruction>(VSHUF_D) LSX128D:$vj, LSX128D:$vk, LSX128D:$vd)>;
 
 def VSEQI_B : LSX_I5<0b01110010100000000>,
               LSX_I5_DESC_BASE_Intrinsic<"vseqi.b", int_loongarch_lsx_vseqi_b, simm5_32, immSExt5, LSX128BOpnd>;
