@@ -447,7 +447,9 @@ LoongArchTargetLowering::LoongArchTargetLowering(const LoongArchTargetMachine &T
     addLASXFloatType(MVT::v8f32, &LoongArch::LASX256WRegClass);
     addLASXFloatType(MVT::v4f64, &LoongArch::LASX256DRegClass);
 
-    // setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4f64, Custom);
+    setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4f64, Custom);
+    setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v4i64, Custom);
+    setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v8i32, Custom);
     setOperationAction(ISD::VECTOR_SHUFFLE, MVT::v8f32, Custom);
 
     // f16 is a storage-only type, always promote it to f32.
@@ -690,7 +692,7 @@ addLASXIntType(MVT::SimpleValueType Ty, const TargetRegisterClass *RC) {
   setOperationAction(ISD::UREM, Ty, Legal);
   setOperationAction(ISD::UMAX, Ty, Legal);
   setOperationAction(ISD::UMIN, Ty, Legal);
-  setOperationAction(ISD::VECTOR_SHUFFLE, Ty, Custom);
+  // setOperationAction(ISD::VECTOR_SHUFFLE, Ty, Custom);
   setOperationAction(ISD::VSELECT, Ty, Legal);
   setOperationAction(ISD::XOR, Ty, Legal);
   setOperationAction(ISD::INSERT_SUBVECTOR, Ty, Legal);
@@ -5319,7 +5321,7 @@ static unsigned getV4LoongArchShuffleImm(ArrayRef<int> Mask) {
 
 static SDValue getV4LoongArchShuffleImm8ForMask(ArrayRef<int> Mask, const SDLoc &DL,
                                           SelectionDAG &DAG) {
-  return DAG.getConstant(getV4LoongArchShuffleImm(Mask), DL, MVT::i32); // i8->i32 lmx:没有对i8合法化的操作
+  return DAG.getConstant(getV4LoongArchShuffleImm(Mask), DL, MVT::i32); 
 }
 
 /// Handle lowering of 4-lane 64-bit floating point shuffles.
@@ -5335,9 +5337,10 @@ static SDValue lowerV4F64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
   assert(V2.getSimpleValueType() == MVT::v4f64 && "Bad operand type!");
   assert(Mask.size() == 4 && "Unexpected mask size for v4 shuffle!");
   // With LASX we have direct support for this permutation.
-  if (Subtarget.hasLASX())
+   if (V2.isUndef() && Subtarget.hasLASX()) {
     return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4f64, V1,
                          getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
+   }
   return SDValue();
 
 }
@@ -5356,10 +5359,10 @@ static SDValue lowerV4I64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
   assert(Mask.size() == 4 && "Unexpected mask size for v4 shuffle!");
 
   // With LASX we have direct support for this permutation.
-  if (Subtarget.hasLASX())
+  if (V2.isUndef() && Subtarget.hasLASX()) {
     return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4i64, V1,
                          getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
-  
+   }
   return SDValue();
 }
 
