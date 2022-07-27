@@ -186,6 +186,8 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::XVPERMI:           return "LoongArchISD::XVPERMI";
   case LoongArchISD::XVSHUF4I:          return "LoongArchISD::XVSHUF4I";
   case LoongArchISD::REVBD:             return "LoongArchISD::REVBD";
+  case LoongArchISD::XVBITSELV:         return "LoongArchISD::XVBITSELV";
+  case LoongArchISD::XVPERM:           return "LoongArchISD::XVPERM";
   }
   return nullptr;
 }
@@ -5442,6 +5444,71 @@ static SDValue getConstVector(ArrayRef<int> Values, MVT VT, SelectionDAG &DAG,
   return ConstsNode;
 }
 
+// Build a vector of constants.
+// Use an UNDEF node if MaskElt == -1.
+// Split 64-bit constants in the 32-bit mode.
+static SDValue getConstVectorForXVBITSEL_V(ArrayRef<unsigned int> Values, MVT VT, SelectionDAG &DAG,
+                              const SDLoc &dl, bool IsMask = false) {
+
+  SmallVector<SDValue, 32>  Ops;
+  bool Split = false;
+
+  MVT ConstVecVT = VT;
+  unsigned NumElts = VT.getVectorNumElements();
+  bool In64BitMode = DAG.getTargetLoweringInfo().isTypeLegal(MVT::i64);
+  if (!In64BitMode && VT.getVectorElementType() == MVT::i64) {
+    ConstVecVT = MVT::getVectorVT(MVT::i32, NumElts * 2);
+    Split = true;
+  }
+
+  MVT EltVT = ConstVecVT.getVectorElementType();
+  for (unsigned i = 0; i < NumElts; ++i) {
+    // bool IsUndef = Values[i] < 0 && IsMask;
+    // SDValue OpNode = IsUndef ? DAG.getUNDEF(EltVT) :
+    //   DAG.getConstant(Values[i], dl, EltVT);
+    SDValue OpNode =  DAG.getConstant(Values[i], dl, EltVT);
+    Ops.push_back(OpNode);
+    // if (Split)
+    //   Ops.push_back(IsUndef ? DAG.getUNDEF(EltVT) :
+    //                 DAG.getConstant(0, dl, EltVT));
+  }
+  SDValue ConstsNode = DAG.getBuildVector(ConstVecVT, dl, Ops);
+  if (Split)
+    ConstsNode = DAG.getBitcast(VT, ConstsNode);
+  return ConstsNode;
+}
+
+/// Generic routine to decompose a shuffle and blend into independent
+/// blends and permutes.
+///
+/// This matches the extremely common pattern for handling combined
+/// shuffle+blend operations on newer X86 ISAs where we have very fast blend
+/// operations. It will try to pick the best arrangement of shuffles and
+/// blends.
+static SDValue lowerVectorShuffleAsDecomposedShuffleBlend(
+    const SDLoc &DL, MVT VT, SDValue V1, SDValue V2, ArrayRef<int> Mask,
+    const LoongArchSubtarget &Subtarget, SelectionDAG &DAG) {
+  // Shuffle the input elements into the desired positions in V1 and V2 and
+  // blend them together.
+  // SmallVector<int, 32> V1Mask(Mask.size(), -1);
+  // SmallVector<int, 32> V2Mask(Mask.size(), -1);
+  SmallVector<unsigned int, 32> BlendMask(Mask.size(), -1);
+  for (int i = 0, Size = Mask.size(); i < Size; ++i)
+    if (Mask[i] >= 0 && Mask[i] < Size) {
+      // V1Mask[i] = Mask[i];
+      BlendMask[i] = 0;
+    } else if (Mask[i] >= Size) {
+      // V2Mask[i] = Mask[i] - Size;
+      BlendMask[i] = 0xFFFFFFFF;
+    }
+
+  V1 = DAG.getVectorShuffle(VT, DL, V1, V1, Mask);
+  V2 = DAG.getVectorShuffle(VT, DL, V2, V2, Mask);
+  SDValue XVBITSELMask = getConstVectorForXVBITSEL_V(BlendMask, MVT::v8i32, DAG, DL, true);
+  // return SDValue();
+  return DAG.getNode(ISD::VSELECT, DL, VT, V1, V2, XVBITSELMask);  
+}
+
 /// Handle lowering of 8-lane 32-bit integer shuffles.
 ///
 /// This routine is only called when we have LASX and thus a reasonable
@@ -5476,8 +5543,36 @@ static SDValue lowerV8I32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
     SDValue XVPERMMask = getConstVector(Mask, MVT::v8i32, DAG, DL, true);
     return DAG.getNode(LoongArchISD::XVPERM, DL, MVT::v8i32, V1, XVPERMMask);  // permute.ll:emit vpermd
   }
+
+  if(Subtarget.hasLASX()){
+    return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v8i32, V1, V2,
+                                                    Mask, Subtarget, DAG);
+  }
   return SDValue();
 }
+
+// static SDValue lowerVectorShuffleAsDecomposedShuffleBlend(
+//     const SDLoc &DL, MVT VT, SDValue V1, SDValue V2, ArrayRef<int> Mask,
+//     const LoongArchSubtarget &Subtarget, SelectionDAG &DAG) {
+  
+//   V1 = DAG.getVectorShuffle(VT, DL, V1, V1, Mask);
+//   V2 = DAG.getVectorShuffle(VT, DL, V2, V2, Mask);
+
+//   SmallVector<int, 32> BlendMask(Mask.size(), -1);
+//   for (int i = 0, Size = Mask.size(); i < Size; ++i) {
+//     if (Mask[i] >= 0 && Mask[i] < Size) {
+//       BlendMask[i] = 0;
+//     }
+//     else if (Mask[i] >= Size) {
+//       BlendMask[i] = 0xFFFFFFFF;
+//     }
+//   }
+//   SDValue V3 = DAG.getBuildVector(MVT::v8i32, DL, BlendMask);
+
+//   return DAG.getNode(LoongArchISD::XVBITSELV, DL, VT, V1, V2, V3);  
+//   // return DAG.getVectorShuffle(VT, DL, V1, V2, Mask);
+// }
+
 
 static SDValue lowerV8F32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
                                       //  const APInt &Zeroable,
@@ -5509,7 +5604,10 @@ static SDValue lowerV8F32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
     SDValue XVPERMMask = getConstVector(Mask, MVT::v8i32, DAG, DL, true);
     return DAG.getNode(LoongArchISD::XVPERM, DL, MVT::v8f32, V1, XVPERMMask);  
   }
-  return SDValue();
+
+  return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v8f32, V1, V2,
+                                                      Mask, Subtarget, DAG);
+  // return SDValue();
 }
 
 /// High-level routine to lower various 256-bit x86 vector shuffles.
