@@ -5052,7 +5052,13 @@ def : LASXPat<(mulhu LASX256B:$a, LASX256B:$b),
 def : LASXPat<(LoongArchINSVE  (v8i32 LASX256W:$a), (v8i32 LASX256W:$b), uimm3:$ui3),
               (XVINSVE0_W  LASX256W:$a, LASX256W:$b, uimm3:$ui3)>;
 
+def : LASXPat<(LoongArchINSVE  (v8f32 LASX256W:$a), (v8f32 LASX256W:$b), uimm3:$ui3),
+              (XVINSVE0_W  LASX256W:$a, LASX256W:$b, uimm3:$ui3)>;
+
 def : LASXPat<(LoongArchINSVE  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm2:$ui2),
+              (XVINSVE0_D  LASX256D:$a, LASX256D:$b, uimm2:$ui2)>;
+
+def : LASXPat<(LoongArchINSVE  (v4f64 LASX256D:$a), (v4f64 LASX256D:$b), uimm2:$ui2),
               (XVINSVE0_D  LASX256D:$a, LASX256D:$b, uimm2:$ui2)>;
 
 
