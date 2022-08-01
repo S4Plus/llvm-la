@@ -137,8 +137,6 @@ class TargetRegisterClass;
       VBROADCAST,
       VABSD,
       UVABSD,
-
-      XVBITSELV,
     };
 
   } // ene namespace LoongArchISD
