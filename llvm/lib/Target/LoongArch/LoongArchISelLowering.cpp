@@ -641,6 +641,9 @@ addLSXIntType(MVT::SimpleValueType Ty, const TargetRegisterClass *RC) {
     setOperationAction(ISD::UINT_TO_FP, Ty, Custom);
   }
 
+  setTargetDAGCombine(ISD::STORE);
+  setTargetDAGCombine(ISD::BUILD_VECTOR);
+
   setOperationAction(ISD::SETCC, Ty, Legal);
   setCondCodeAction(ISD::SETNE, Ty, Expand);
   setCondCodeAction(ISD::SETGE, Ty, Expand);
@@ -1695,6 +1698,235 @@ static SDValue performSIGN_EXTENDCombine(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
+static SDValue performSTORECombine(SDNode *N, SelectionDAG &DAG,
+                                   const LoongArchSubtarget &Subtarget) {
+  if (Subtarget.hasLSX()) {
+    StoreSDNode *St = cast<StoreSDNode>(N);
+    EVT VT = St->getValue().getValueType();
+    EVT StVT = St->getMemoryVT();
+    SDLoc dl(St);
+    SDValue StoredVal = St->getOperand(1);
+    const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+
+    // Exclude v16i8 to v2i8 case, because it will create 
+    // two extract_vector_elt and store nodes with i8 type, but
+    // i8 is not supported by LoongArch.
+    if (StVT == MVT::v2i8)
+      return SDValue();
+
+    // Optimize trunc store (of multiple scalars) to shuffle and store.
+    // First, pack all of the elements in one place. Next, store to memory
+    // in fewer chunks.
+    if (St->isTruncatingStore() && VT.isVector()) {
+      unsigned NumElems = VT.getVectorNumElements();
+      assert(StVT != VT && "Cannot truncate to the same type");
+      unsigned FromSz = VT.getScalarSizeInBits();
+      unsigned ToSz = StVT.getScalarSizeInBits();
+
+      // The truncating store is legal 
+      // if target has some instructions designated for truncate store.
+      // In this case we don't need any further transformations.
+      if (TLI.isTruncStoreLegalOrCustom(VT, StVT))
+        return SDValue();
+      
+      // From, To sizes and ElemCount must be pow of two
+      if (!isPowerOf2_32(NumElems * FromSz * ToSz)) return SDValue();
+      // We are going to use the original vector elt for storing.
+      // Accumulated smaller vector elements must be a multiple of the store size.
+      if (0 != (NumElems * FromSz) % ToSz) return SDValue();
+
+      unsigned SizeRatio  = FromSz / ToSz;
+
+      assert(SizeRatio * NumElems * ToSz == VT.getSizeInBits());
+
+      // Create a type on which we perform the shuffle
+      EVT WideVecVT = EVT::getVectorVT(*DAG.getContext(),
+              StVT.getScalarType(), NumElems * SizeRatio);
+      
+      assert(WideVecVT.getSizeInBits() == VT.getSizeInBits());
+
+      SDValue WideVec = DAG.getBitcast(WideVecVT, St->getValue());
+      SmallVector<int, 8> ShuffleVec(NumElems * SizeRatio, -1);
+      for (unsigned i = 0; i != NumElems; ++i)
+        ShuffleVec[i] = i * SizeRatio;
+
+      // Can't shuffle using an illegal type.
+      if (!TLI.isTypeLegal(WideVecVT))
+        return SDValue();
+
+      SDValue Shuff = DAG.getVectorShuffle(WideVecVT, dl, WideVec,
+                                          DAG.getUNDEF(WideVecVT),
+                                          ShuffleVec);
+      // At this point all of the data is stored at the bottom of the
+      // register. We now need to save it to mem.
+
+      // Find the largest store unit
+      MVT StoreType = MVT::i8;
+      for (MVT Tp : MVT::integer_valuetypes()) {
+        if (TLI.isTypeLegal(Tp) && Tp.getSizeInBits() <= NumElems * ToSz)
+          StoreType = Tp;
+      }
+
+      // Bitcast the original vector into a vector of store-size units
+      EVT StoreVecVT = EVT::getVectorVT(*DAG.getContext(),
+              StoreType, VT.getSizeInBits()/StoreType.getSizeInBits());
+      assert(StoreVecVT.getSizeInBits() == VT.getSizeInBits());
+      SDValue ShuffWide = DAG.getBitcast(StoreVecVT, Shuff);
+      SmallVector<SDValue, 8> Chains;
+      SDValue Ptr = St->getBasePtr();
+
+      // Perform one or more big stores into memory.
+      for (unsigned i=0, e=(ToSz*NumElems)/StoreType.getSizeInBits(); i!=e; ++i) {
+        SDValue SubVec = DAG.getNode(ISD::EXTRACT_VECTOR_ELT, dl,
+                                    StoreType, ShuffWide,
+                                    DAG.getIntPtrConstant(i, dl));
+        SDValue Ch =
+            DAG.getStore(St->getChain(), dl, SubVec, Ptr, St->getPointerInfo(),
+                        St->getAlignment(), St->getMemOperand()->getFlags());
+        Ptr = DAG.getMemBasePlusOffset(Ptr, StoreType.getStoreSize(), dl);
+        Chains.push_back(Ch);
+      }
+
+      return DAG.getNode(ISD::TokenFactor, dl, MVT::Other, Chains);
+    }
+  }
+
+  return SDValue();
+}
+
+static SDValue performBUILD_VECTORCombine(SDNode *N, SelectionDAG &DAG,
+                                          TargetLowering::DAGCombinerInfo &DCI,
+                                          const LoongArchSubtarget &Subtarget) {
+  if (Subtarget.hasLSX()) {
+    // We perform this optimization post type-legalization because
+    // the type-legalizer often scalarizes integer-promoted vectors.
+    // Performing this optimization before may create bit-casts which
+    // will be type-legalized to complex code sequences.
+    // We perform this optimization only before the operation legalizer because we
+    // may introduce illegal operations.
+    if (DCI.Level != AfterLegalizeVectorOps && DCI.Level != AfterLegalizeTypes)
+      return SDValue();
+
+    unsigned NumInScalars = N->getNumOperands();
+    SDLoc DL(N);
+    EVT VT = N->getValueType(0);
+
+    // Check to see if this is a BUILD_VECTOR of a bunch of values
+    // which come from any_extend or zero_extend nodes. If so, we can create
+    // a new BUILD_VECTOR using bit-casts which may enable other BUILD_VECTOR
+    // optimizations. We do not handle sign-extend because we can't fill the sign
+    // using shuffles.
+    EVT SourceType = MVT::Other;
+    bool AllAnyExt = true;
+    for (unsigned i = 0; i != NumInScalars; ++i) {
+      SDValue In = N->getOperand(i);
+      // Ignore undef inputs.
+      if (In.isUndef()) continue;
+
+      SDNode *OpNode = In.getNode();
+      bool LAExt2i32 = (In.getOpcode() == ISD::EXTRACT_VECTOR_ELT && 
+                        OpNode->getValueType(0) == MVT::i32 && 
+                        (OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v16i8 || 
+                        OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v8i16 || 
+                        OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v4i32));
+      bool AnyExt  = (LAExt2i32 || In.getOpcode() == ISD::ANY_EXTEND);
+      // bool AnyExt  = In.getOpcode() == ISD::ANY_EXTEND;
+      bool ZeroExt = In.getOpcode() == ISD::ZERO_EXTEND;
+
+      // Abort if the element is not an extension.
+      if (!ZeroExt && !AnyExt) {
+        SourceType = MVT::Other;
+        break;
+      }
+
+      // The input is a ZeroExt or AnyExt. Check the original type.
+      EVT InTy;
+      if(In.getOpcode() == ISD::ANY_EXTEND || ZeroExt)
+        InTy = OpNode->getOperand(0).getOperand(0).getValueType().getScalarType();
+      else
+        InTy = OpNode->getOperand(0).getValueType().getScalarType();
+      // EVT InTy = In.getOperand(0).getValueType();
+
+      // Check that all of the widened source types are the same.
+      if (SourceType == MVT::Other)
+        // First time.
+        SourceType = InTy;
+      else if (InTy != SourceType) {
+        // Multiple income types. Abort.
+        SourceType = MVT::Other;
+        break;
+      }
+
+      // Check if all of the extends are ANY_EXTENDs.
+      AllAnyExt &= AnyExt;
+    }
+
+    // In order to have valid types, all of the inputs must be extended from the
+    // same source type and all of the inputs must be any or zero extend.
+    // Scalar sizes must be a power of two.
+    EVT OutScalarTy = VT.getScalarType();
+    bool ValidTypes = SourceType != MVT::Other &&
+                  isPowerOf2_32(OutScalarTy.getSizeInBits()) && 
+                  isPowerOf2_32(SourceType.getSizeInBits());
+
+    // Create a new simpler BUILD_VECTOR sequence which other optimizations can
+    // turn into a single shuffle instruction.
+    if (!ValidTypes)
+      return SDValue();
+
+    bool isLE = DAG.getDataLayout().isLittleEndian();
+    unsigned ElemRatio = OutScalarTy.getSizeInBits()/SourceType.getSizeInBits();
+    assert(ElemRatio > 1 && "Invalid element size ratio");
+    // SDValue Filler = AllAnyExt ? DAG.getUNDEF(SourceType):
+    //                             DAG.getConstant(0, DL, SourceType);
+    SDValue Filler = AllAnyExt ? DAG.getUNDEF(N->getOperand(0).getNode()->getValueType(0)):
+                                DAG.getConstant(0, DL, N->getOperand(0).getNode()->getValueType(0));
+
+    unsigned NewBVElems = ElemRatio * VT.getVectorNumElements();
+    SmallVector<SDValue, 8> Ops(NewBVElems, Filler);
+
+    // Populate the new build_vector
+    for (unsigned i = 0, e = N->getNumOperands(); i != e; ++i) {
+      SDValue Cast = N->getOperand(i);
+      // assert((Cast.getOpcode() == ISD::ANY_EXTEND ||
+      //         Cast.getOpcode() == ISD::ZERO_EXTEND ||
+      //         Cast.isUndef()) && "Invalid cast opcode");
+      SDValue In;
+      if (Cast.isUndef())
+        In = DAG.getUNDEF(N->getOperand(0).getNode()->getValueType(0));
+      else 
+        // In = Cast->getOperand(0);
+        In = Cast;
+      unsigned Index = isLE ? (i * ElemRatio) :
+                              (i * ElemRatio + (ElemRatio - 1));
+
+      assert(Index < Ops.size() && "Invalid index");
+      Ops[Index] = In;
+    }
+
+    // The type of the new BUILD_VECTOR node.
+    EVT VecVT = EVT::getVectorVT(*DAG.getContext(), SourceType, NewBVElems);
+    assert(VecVT.getSizeInBits() == VT.getSizeInBits() &&
+          "Invalid vector size");
+    // Check if the new vector type is legal.
+    const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+    if (!TLI.isTypeLegal(VecVT) ||
+        (!TLI.isOperationLegal(ISD::BUILD_VECTOR, VecVT) &&
+        TLI.isOperationLegal(ISD::BUILD_VECTOR, VT)))
+      return SDValue();
+
+    // Make the new BUILD_VECTOR.
+    SDValue BV = DAG.getBuildVector(VecVT, DL, Ops);
+
+    // The new BUILD_VECTOR node has the potential to be further optimized.
+    DCI.AddToWorklist(BV.getNode());
+    // Bitcast to the desired type.
+    return DAG.getBitcast(VT, BV);
+  }
+
+  return SDValue();
+}
+
 SDValue  LoongArchTargetLowering::
 PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const {
   SelectionDAG &DAG = DCI.DAG;
@@ -1720,6 +1952,10 @@ PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const {
     return performCONCAT_VECTORSCombine(N, DAG, DCI, Subtarget);
   case ISD::SIGN_EXTEND:
     return performSIGN_EXTENDCombine(N, DAG, DCI, Subtarget);
+  case ISD::STORE:
+    return performSTORECombine(N, DAG, Subtarget);
+  case ISD::BUILD_VECTOR:
+    return performBUILD_VECTORCombine(N, DAG, DCI, Subtarget);
   }
   return SDValue();
 }
