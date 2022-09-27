@@ -643,6 +643,7 @@ addLSXIntType(MVT::SimpleValueType Ty, const TargetRegisterClass *RC) {
 
   setTargetDAGCombine(ISD::STORE);
   setTargetDAGCombine(ISD::BUILD_VECTOR);
+  setTargetDAGCombine(ISD::BITCAST);
 
   setOperationAction(ISD::SETCC, Ty, Legal);
   setCondCodeAction(ISD::SETNE, Ty, Expand);
@@ -1927,6 +1928,42 @@ static SDValue performBUILD_VECTORCombine(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
+static SDValue performBITCASTCombine(SDNode *N, SelectionDAG &DAG,
+                                     TargetLowering::DAGCombinerInfo &DCI,
+                                     const LoongArchSubtarget &Subtarget) {
+  if (Subtarget.hasLSX()) {
+    SDLoc DL(N);
+    EVT VT = N->getValueType(0);
+    SDValue Op = N->getOperand(0);
+
+    if (Op.getOpcode() != ISD::VECTOR_SHUFFLE)
+      return SDValue();
+
+    SDValue Op0 = Op.getOperand(0);
+    SDValue Op1 = Op.getOperand(1);
+
+    if (Op0.getOpcode() == ISD::VECTOR_SHUFFLE && Op1.getOpcode() == ISD::BUILD_VECTOR) {
+      if (Op0.getOperand(0).getValueType() != Op0->getValueType(0) || 
+          Op0.getOperand(1).getValueType() != Op0->getValueType(0) ||
+          !Op0.getOperand(1)->isUndef()) {
+        return SDValue();
+      }
+
+      unsigned Op1NumElts = Op1->getValueType(0).getVectorNumElements();
+      for (unsigned i = 0; i != Op1NumElts; ++i) {
+        ConstantSDNode *Element = dyn_cast<ConstantSDNode>(Op1.getOperand(i));
+        if(!Element || Op1.getOperand(i).getValueType() != MVT::i32) {
+          return SDValue();
+        }
+      }
+
+      return DAG.getNode(ISD::BITCAST, DL, VT, Op0);
+    }
+  }
+
+  return SDValue();
+}
+
 SDValue  LoongArchTargetLowering::
 PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const {
   SelectionDAG &DAG = DCI.DAG;
@@ -1956,6 +1993,8 @@ PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const {
     return performSTORECombine(N, DAG, Subtarget);
   case ISD::BUILD_VECTOR:
     return performBUILD_VECTORCombine(N, DAG, DCI, Subtarget);
+  case ISD::BITCAST:
+    return performBITCASTCombine(N, DAG, DCI, Subtarget);
   }
   return SDValue();
 }
