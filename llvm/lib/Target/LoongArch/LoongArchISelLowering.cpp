@@ -1828,8 +1828,7 @@ static SDValue performBUILD_VECTORCombine(SDNode *N, SelectionDAG &DAG,
       bool LAExt2i32 = (In.getOpcode() == ISD::EXTRACT_VECTOR_ELT && 
                         OpNode->getValueType(0) == MVT::i32 && 
                         (OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v16i8 || 
-                        OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v8i16 || 
-                        OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v4i32));
+                        OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v8i16));
       bool AnyExt  = (LAExt2i32 || In.getOpcode() == ISD::ANY_EXTEND);
       // bool AnyExt  = In.getOpcode() == ISD::ANY_EXTEND;
       bool ZeroExt = In.getOpcode() == ISD::ZERO_EXTEND;
