@@ -1943,8 +1943,7 @@ static SDValue performBITCASTCombine(SDNode *N, SelectionDAG &DAG,
 
     if (Op0.getOpcode() == ISD::VECTOR_SHUFFLE && Op1.getOpcode() == ISD::BUILD_VECTOR) {
       if (Op0.getOperand(0).getValueType() != Op0->getValueType(0) || 
-          Op0.getOperand(1).getValueType() != Op0->getValueType(0) ||
-          !Op0.getOperand(1)->isUndef()) {
+          Op0.getOperand(1).getValueType() != Op0->getValueType(0)) {
         return SDValue();
       }
 
