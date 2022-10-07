@@ -1708,6 +1708,11 @@ static SDValue performSTORECombine(SDNode *N, SelectionDAG &DAG,
   if (Subtarget.hasLSX()) {
     StoreSDNode *St = cast<StoreSDNode>(N);
     EVT VT = St->getValue().getValueType();
+
+    // Only for lsx.
+    if (!VT.is128BitVector())
+      return SDValue();
+
     EVT StVT = St->getMemoryVT();
     SDLoc dl(St);
     SDValue StoredVal = St->getOperand(1);
@@ -1802,7 +1807,8 @@ static SDValue performSTORECombine(SDNode *N, SelectionDAG &DAG,
 static SDValue performBUILD_VECTORCombine(SDNode *N, SelectionDAG &DAG,
                                           TargetLowering::DAGCombinerInfo &DCI,
                                           const LoongArchSubtarget &Subtarget) {
-  if (Subtarget.hasLSX()) {
+   // Only for lsx.
+  if (Subtarget.hasLSX() && N->getValueType(0).is128BitVector()) {
     // We perform this optimization post type-legalization because
     // the type-legalizer often scalarizes integer-promoted vectors.
     // Performing this optimization before may create bit-casts which
@@ -1943,7 +1949,8 @@ static SDValue performBUILD_VECTORCombine(SDNode *N, SelectionDAG &DAG,
 static SDValue performBITCASTCombine(SDNode *N, SelectionDAG &DAG,
                                      TargetLowering::DAGCombinerInfo &DCI,
                                      const LoongArchSubtarget &Subtarget) {
-  if (Subtarget.hasLSX()) {
+  // Only for lsx.
+  if (Subtarget.hasLSX() && N->getValueType(0).is128BitVector()) {
     SDLoc DL(N);
     EVT VT = N->getValueType(0);
     SDValue Op = N->getOperand(0);
