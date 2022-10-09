@@ -742,7 +742,7 @@ addLSXFloatType(MVT::SimpleValueType Ty, const TargetRegisterClass *RC) {
   setOperationAction(ISD::BUILD_VECTOR, Ty, Custom);
   setOperationAction(ISD::CONCAT_VECTORS, Ty, Legal);
   setOperationAction(ISD::VECTOR_SHUFFLE, Ty, Custom);
-  setOperationAction(ISD::EXTRACT_SUBVECTOR, Ty, Legal);
+  // setOperationAction(ISD::EXTRACT_SUBVECTOR, Ty, Legal);
 
   if (Ty == MVT::v4f32 || Ty == MVT::v2f64) {
     setOperationAction(ISD::FP_TO_SINT, Ty, Custom);
