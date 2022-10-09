@@ -716,6 +716,9 @@ addLASXIntType(MVT::SimpleValueType Ty, const TargetRegisterClass *RC) {
   }
 
   setTargetDAGCombine(ISD::CONCAT_VECTORS);
+  setTargetDAGCombine(ISD::STORE);
+  setTargetDAGCombine(ISD::BUILD_VECTOR);
+  setTargetDAGCombine(ISD::BITCAST);
 
   setOperationAction(ISD::SETCC, Ty, Legal);
   setCondCodeAction(ISD::SETNE, Ty, Expand);
@@ -742,6 +745,7 @@ addLSXFloatType(MVT::SimpleValueType Ty, const TargetRegisterClass *RC) {
   setOperationAction(ISD::BUILD_VECTOR, Ty, Custom);
   setOperationAction(ISD::CONCAT_VECTORS, Ty, Legal);
   setOperationAction(ISD::VECTOR_SHUFFLE, Ty, Custom);
+  // setOperationAction(ISD::EXTRACT_SUBVECTOR, Ty, Legal);
 
   if (Ty == MVT::v4f32 || Ty == MVT::v2f64) {
     setOperationAction(ISD::FP_TO_SINT, Ty, Custom);
@@ -1837,7 +1841,9 @@ static SDValue performBUILD_VECTORCombine(SDNode *N, SelectionDAG &DAG,
       bool LAExt2i32 = (In.getOpcode() == ISD::EXTRACT_VECTOR_ELT && 
                         OpNode->getValueType(0) == MVT::i32 && 
                         (OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v16i8 || 
-                        OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v8i16));
+                        OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v8i16 || 
+                        OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v32i8 || 
+                        OpNode->getOperand(0).getNode()->getValueType(0) == MVT::v16i16));
       bool AnyExt  = (LAExt2i32 || In.getOpcode() == ISD::ANY_EXTEND);
       // bool AnyExt  = In.getOpcode() == ISD::ANY_EXTEND;
       bool ZeroExt = In.getOpcode() == ISD::ZERO_EXTEND;
@@ -1881,6 +1887,13 @@ static SDValue performBUILD_VECTORCombine(SDNode *N, SelectionDAG &DAG,
     // Create a new simpler BUILD_VECTOR sequence which other optimizations can
     // turn into a single shuffle instruction.
     if (!ValidTypes)
+      return SDValue();
+    
+    // If OutScalarTy is same to SourceType, that means the BUILD_VECTOR just
+    // happens to combine into a 128-bit vector without widen the OutScalarTy. 
+    // These cases should be ruled out because we only handle cases
+    // whose OutScalarTy is widen.
+    if (OutScalarTy == SourceType)
       return SDValue();
 
     bool isLE = DAG.getDataLayout().isLittleEndian();
@@ -8235,7 +8248,7 @@ bool LoongArchTargetLowering::isExtractSubvectorCheap(EVT ResVT, EVT SrcVT,
     return false;
 
   return (
-      (ResVT != MVT::v16i8) && (ResVT != MVT::v8i16) &&
+      // (ResVT != MVT::v16i8) && (ResVT != MVT::v8i16) &&
       (Index == 0 || (Index == ResVT.getVectorNumElements() &&
                       (ResVT.getSizeInBits() == SrcVT.getSizeInBits() / 2))));
 }
