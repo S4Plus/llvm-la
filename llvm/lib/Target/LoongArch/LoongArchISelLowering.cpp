@@ -747,6 +747,7 @@ addLSXFloatType(MVT::SimpleValueType Ty, const TargetRegisterClass *RC) {
   if (Ty == MVT::v4f32 || Ty == MVT::v2f64) {
     setOperationAction(ISD::FP_TO_SINT, Ty, Custom);
     setOperationAction(ISD::FP_TO_UINT, Ty, Custom);
+    setOperationAction(ISD::EXTRACT_SUBVECTOR, Ty, Legal);
   }
 
 

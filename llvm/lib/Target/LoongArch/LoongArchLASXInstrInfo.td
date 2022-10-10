@@ -4468,8 +4468,14 @@ def : LASXPat <(extract_subvector v32i8:$vec, (i64 0)),
 def : LASXPat <(extract_subvector v4i64:$vec, (i32 2)),
                (v2i64 (EXTRACT_SUBREG (v4i64 (XVPERMI_QD v4i64:$vec, v4i64:$vec, (i32 1))), sub_128))>;
 
+def : LASXPat <(extract_subvector v4f64:$vec, (i32 2)),
+               (v2f64 (EXTRACT_SUBREG (v4f64 (XVPERMI_QD v4f64:$vec, v4f64:$vec, (i32 1))), sub_128))>;
+
 def : LASXPat <(extract_subvector v8i32:$vec, (i32 4)),
                (v4i32 (EXTRACT_SUBREG (v8i32 (XVPERMI_QW v8i32:$vec, v8i32:$vec, (i32 1))), sub_128))>;
+
+def : LASXPat <(extract_subvector v8f32:$vec, (i32 4)),
+               (v4f32 (EXTRACT_SUBREG (v8f32 (XVPERMI_QW v8f32:$vec, v8f32:$vec, (i32 1))), sub_128))>;
 
 def : LASXPat <(extract_subvector v16i16:$vec, (i32 8)),
                (v8i16 (EXTRACT_SUBREG (v16i16 (XVPERMI_QH v16i16:$vec, v16i16:$vec, (i32 1))), sub_128))>;
@@ -4481,8 +4487,14 @@ def : LASXPat <(extract_subvector v32i8:$vec, (i32 16)),
 def : LASXPat <(extract_subvector v4i64:$vec, (i64 2)),
                (v2i64 (EXTRACT_SUBREG (v4i64 (XVPERMI_QD v4i64:$vec, v4i64:$vec, (i32 1))), sub_128))>;
 
+def : LASXPat <(extract_subvector v4f64:$vec, (i64 2)),
+               (v2f64 (EXTRACT_SUBREG (v4f64 (XVPERMI_QD v4f64:$vec, v4f64:$vec, (i32 1))), sub_128))>;
+
 def : LASXPat <(extract_subvector v8i32:$vec, (i64 4)),
                (v4i32 (EXTRACT_SUBREG (v8i32 (XVPERMI_QW v8i32:$vec, v8i32:$vec, (i32 1))), sub_128))>;
+
+def : LASXPat <(extract_subvector v8f32:$vec, (i64 4)),
+               (v4f32 (EXTRACT_SUBREG (v8f32 (XVPERMI_QW v8f32:$vec, v8f32:$vec, (i32 1))), sub_128))>;
 
 def : LASXPat <(extract_subvector v16i16:$vec, (i64 8)),
                (v8i16 (EXTRACT_SUBREG (v16i16 (XVPERMI_QH v16i16:$vec, v16i16:$vec, (i32 1))), sub_128))>;
