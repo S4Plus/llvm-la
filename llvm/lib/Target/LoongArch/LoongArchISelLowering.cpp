@@ -1897,6 +1897,11 @@ static SDValue performBUILD_VECTORCombine(SDNode *N, SelectionDAG &DAG,
     if (OutScalarTy == SourceType)
       return SDValue();
 
+    // OutScalarTy is short than SourceType, that means the source vector is truncated
+    // and then stored. These cases should also be ruled out.
+    if (OutScalarTy.getSizeInBits() < SourceType.getSizeInBits())
+      return SDValue();
+
     bool isLE = DAG.getDataLayout().isLittleEndian();
     unsigned ElemRatio = OutScalarTy.getSizeInBits()/SourceType.getSizeInBits();
     assert(ElemRatio > 1 && "Invalid element size ratio");
