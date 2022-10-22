@@ -3002,10 +3002,12 @@ static SDValue lowerVECTOR_SHUFFLE_XSHF(SDValue Op, EVT ResTy,
                                          SelectionDAG &DAG) {
   int SHFIndices[4] = { -1, -1, -1, -1 };
 
-  if (Indices.size() < 4)
+  // If the size of mask is equal to four, xvpermi.d inst should be generated,
+  // so the node should be converted to LoongArchISD::XVPERMI but not SHF.
+  if (Indices.size() <= 4)
     return SDValue();
 
-  int HalfSize = Indices.size()/2;
+  int HalfSize = Indices.size() / 2;
   for (int i = 0; i < 4; ++i) {
     for (int j = i; j < HalfSize; j += 4) {
       int Idx = Indices[j];
@@ -3048,6 +3050,7 @@ static SDValue lowerVECTOR_SHUFFLE_XSHF(SDValue Op, EVT ResTy,
   return DAG.getNode(LoongArchISD::SHF, DL, ResTy, Op->getOperand(0),
                      DAG.getConstant(Imm, DL, MVT::i32));
 }
+
 static bool isConstantOrUndef(const SDValue Op) {
   if (Op->isUndef())
     return true;
