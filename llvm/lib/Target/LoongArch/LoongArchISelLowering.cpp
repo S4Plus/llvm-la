@@ -5627,48 +5627,6 @@ static SDValue getV4LoongArchShuffleImm8ForMask(ArrayRef<int> Mask, const SDLoc 
   return DAG.getConstant(getV4LoongArchShuffleImm(Mask), DL, MVT::i32); 
 }
 
-/// Handle lowering of 4-lane 64-bit floating point shuffles.
-///
-/// Also ends up handling lowering of 4-lane 64-bit integer shuffles when LASX
-/// isn't available.
-static SDValue lowerV4F64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
-                                      //  const APInt &Zeroable,
-                                       SDValue V1, SDValue V2,
-                                       const LoongArchSubtarget &Subtarget,
-                                       SelectionDAG &DAG) {
-  assert(V1.getSimpleValueType() == MVT::v4f64 && "Bad operand type!");
-  assert(V2.getSimpleValueType() == MVT::v4f64 && "Bad operand type!");
-  assert(Mask.size() == 4 && "Unexpected mask size for v4 shuffle!");
-  // With LASX we have direct support for this permutation.
-   if (V2.isUndef() && Subtarget.hasLASX()) {
-    return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4f64, V1,
-                         getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
-   }
-  return SDValue();
-
-}
-
-/// Handle lowering of 4-lane 64-bit integer shuffles.
-///
-/// Also ends up handling lowering of 4-lane 64-bit integer shuffles when LASX
-/// isn't available.
-static SDValue lowerV4I64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
-                                      //  const APInt &Zeroable,
-                                       SDValue V1, SDValue V2,
-                                       const LoongArchSubtarget &Subtarget,
-                                       SelectionDAG &DAG) {
-  assert(V1.getSimpleValueType() == MVT::v4i64 && "Bad operand type!");
-  assert(V2.getSimpleValueType() == MVT::v4i64 && "Bad operand type!");
-  assert(Mask.size() == 4 && "Unexpected mask size for v4 shuffle!");
-
-  // With LASX we have direct support for this permutation.
-  if (V2.isUndef() && Subtarget.hasLASX()) {
-    return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4i64, V1,
-                         getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
-   }
-  return SDValue();
-}
-
 /// Test whether a shuffle mask is equivalent within each sub-lane.
 ///
 /// This checks a shuffle mask to see if it is performing the same
@@ -5751,7 +5709,8 @@ static SDValue getConstVector(ArrayRef<int> Values, MVT VT, SelectionDAG &DAG,
 // Build a vector of constants.
 // Use an UNDEF node if MaskElt == -1.
 // Split 64-bit constants in the 32-bit mode.
-static SDValue getConstVectorForXVBITSEL_V(ArrayRef<unsigned int> Values, MVT VT, SelectionDAG &DAG,
+template <typename T>
+static SDValue getConstVectorForXVBITSEL_V(ArrayRef<T> Values, MVT VT, SelectionDAG &DAG,
                               const SDLoc &dl, bool IsMask = false) {
 
   SmallVector<SDValue, 32>  Ops;
@@ -5788,18 +5747,80 @@ static SDValue lowerVectorShuffleAsDecomposedShuffleBlend(
     const LoongArchSubtarget &Subtarget, SelectionDAG &DAG) {
   // Shuffle the input elements into the desired positions in V1 and V2 and
   // blend them together.
-  SmallVector<unsigned int, 32> SelectMask(Mask.size(), -1);
+  SmallVector<unsigned int, 32> SelectMask_w(Mask.size(), -1);
+  SmallVector<unsigned long, 32> SelectMask_d(Mask.size(), -1);
+  SmallVector<int, 8> PermMask(Mask.size(), -1);
   for (int i = 0, Size = Mask.size(); i < Size; ++i)
     if (Mask[i] >= 0 && Mask[i] < Size) {
-      SelectMask[i] = 0;
+      SelectMask_w[i] = 0;
+      SelectMask_d[i] = 0;
+      PermMask[i] = Mask[i];
     } else if (Mask[i] >= Size) {
-      SelectMask[i] = 0xFFFFFFFF;
+      SelectMask_w[i] = 0xFFFFFFFF;
+      SelectMask_d[i] = 0xFFFFFFFFFFFFFFFF;
+      PermMask[i] = Mask[i] - Size;
     }
 
-  V1 = DAG.getVectorShuffle(VT, DL, V1, V1, Mask);
-  V2 = DAG.getVectorShuffle(VT, DL, V2, V2, Mask);
-  SDValue XVBITSELMask = getConstVectorForXVBITSEL_V(SelectMask, MVT::v8i32, DAG, DL, true);
+  V1 = DAG.getVectorShuffle(VT, DL, V1, V1, PermMask);
+  V2 = DAG.getVectorShuffle(VT, DL, V2, V2, PermMask);
+
+  SDValue XVBITSELMask;
+  if (VT == MVT::v8i32 || VT == MVT::v8f32)
+    XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned int>(SelectMask_w, MVT::v8i32, DAG, DL, true);
+  else if (VT == MVT::v4i64 || VT == MVT::v4f64)
+    XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned long>(SelectMask_d, MVT::v4i64, DAG, DL, true);
+
   return DAG.getNode(ISD::VSELECT, DL, VT, XVBITSELMask, V2, V1);  
+}
+
+/// Handle lowering of 4-lane 64-bit floating point shuffles.
+///
+/// Also ends up handling lowering of 4-lane 64-bit integer shuffles when LASX
+/// isn't available.
+static SDValue lowerV4F64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
+                                      //  const APInt &Zeroable,
+                                       SDValue V1, SDValue V2,
+                                       const LoongArchSubtarget &Subtarget,
+                                       SelectionDAG &DAG) {
+  assert(V1.getSimpleValueType() == MVT::v4f64 && "Bad operand type!");
+  assert(V2.getSimpleValueType() == MVT::v4f64 && "Bad operand type!");
+  assert(Mask.size() == 4 && "Unexpected mask size for v4 shuffle!");
+
+  // With LASX we have direct support for this permutation.
+  if (V2.isUndef() && Subtarget.hasLASX()) {
+    return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4f64, V1,
+                         getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
+  }
+
+  return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v4f64, V1, V2,
+                                                    Mask, Subtarget, DAG);
+
+  // return SDValue();
+}
+
+/// Handle lowering of 4-lane 64-bit integer shuffles.
+///
+/// Also ends up handling lowering of 4-lane 64-bit integer shuffles when LASX
+/// isn't available.
+static SDValue lowerV4I64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
+                                      //  const APInt &Zeroable,
+                                       SDValue V1, SDValue V2,
+                                       const LoongArchSubtarget &Subtarget,
+                                       SelectionDAG &DAG) {
+  assert(V1.getSimpleValueType() == MVT::v4i64 && "Bad operand type!");
+  assert(V2.getSimpleValueType() == MVT::v4i64 && "Bad operand type!");
+  assert(Mask.size() == 4 && "Unexpected mask size for v4 shuffle!");
+
+  // With LASX we have direct support for this permutation.
+  if (V2.isUndef() && Subtarget.hasLASX()) {
+    return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4i64, V1,
+                         getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
+  }
+
+  return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v4i64, V1, V2,
+                                                    Mask, Subtarget, DAG);
+
+  // return SDValue();
 }
 
 /// Handle lowering of 8-lane 32-bit integer shuffles.
@@ -5907,10 +5928,6 @@ static SDValue lower256Bit_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
   default:
     llvm_unreachable("Not a valid 256-bit LoongArch vector type!");
   }
-
-
-
-
 
 }
 
