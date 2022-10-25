@@ -5602,8 +5602,8 @@ static SDValue lowerVECTOR_SHUFFLE_XVSHUF(const SDLoc &DL, MVT VT, EVT ResTy,
 /// Get a 4-lane 8-bit shuffle immediate for a mask.
 ///
 /// This helper function produces an 8-bit shuffle immediate corresponding to
-/// the ubiquitous shuffle encoding scheme used in x86 instructions for
-/// shuffling 4 lanes. It can be used with most of the PSHUF instructions for
+/// the ubiquitous shuffle encoding scheme used in LoongArch instructions for
+/// shuffling 4 lanes. It can be used with most of the SHUF instructions for
 /// example.
 ///
 /// NB: We rely heavily on "undef" masks preserving the input lane.
@@ -5792,7 +5792,7 @@ static SDValue lowerV4F64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
                          getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
   }
 
-  // If two half of the vector, that's the high v2i64 and the low v2i64,
+  // If two half of the vector, that's the high v2f64 and the low v2f64,
   // are respectively both from the same vector, we can use xvpermi.q inst.
   bool TwoQWords = true;
   int Size = Mask.size();
@@ -5902,6 +5902,27 @@ static SDValue lowerV8I32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
     return DAG.getNode(LoongArchISD::XVPERM, DL, MVT::v8i32, V1, XVPERMMask);  // permute.ll:emit vpermd
   }
 
+  // If two half of the vector, that's the high v4i32 and the low v4i32,
+  // are respectively both from the same vector, we can use xvpermi.q inst.
+  bool TwoQWords = true;
+  int Size = Mask.size();
+  for (int i = 0; i < Size / 4; ++i) {
+    if (!((Mask[4*i] == 0 && Mask[4*i+1] == 1 && Mask[4*i+2] == 2 && Mask[4*i+3] == 3)
+          || (Mask[4*i] == 4 && Mask[4*i+1] == 5 && Mask[4*i+2] == 6 && Mask[4*i+3] == 7)
+            || (Mask[4*i] == 8 && Mask[4*i+1] == 9 && Mask[4*i+2] == 10 && Mask[4*i+3] == 11)
+              || (Mask[4*i] == 12 && Mask[4*i+1] == 13 && Mask[4*i+2] == 14 && Mask[4*i+3] == 15))){
+      TwoQWords = false;
+      break;
+    }
+  }
+
+  if (TwoQWords) {
+    int TwoQWordsMask = (Mask[Size-1] / (Size/2)) * 16 + Mask[0] / (Size/2);
+    return SDValue(DAG.getMachineNode(LoongArch::XVPERMI_Q, DL, MVT::v8i32, V1, V2,
+                              DAG.getTargetConstant(TwoQWordsMask, DL, MVT::i32)),
+                  0);
+  }
+
   if(Subtarget.hasLASX()){
     return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v8i32, V1, V2,
                                                     Mask, Subtarget, DAG);
@@ -5940,12 +5961,33 @@ static SDValue lowerV8F32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
     return DAG.getNode(LoongArchISD::XVPERM, DL, MVT::v8f32, V1, XVPERMMask);  
   }
 
+  // If two half of the vector, that's the high v4f32 and the low v4f32,
+  // are respectively both from the same vector, we can use xvpermi.q inst.
+  bool TwoQWords = true;
+  int Size = Mask.size();
+  for (int i = 0; i < Size / 4; ++i) {
+    if (!((Mask[4*i] == 0 && Mask[4*i+1] == 1 && Mask[4*i+2] == 2 && Mask[4*i+3] == 3)
+          || (Mask[4*i] == 4 && Mask[4*i+1] == 5 && Mask[4*i+2] == 6 && Mask[4*i+3] == 7)
+            || (Mask[4*i] == 8 && Mask[4*i+1] == 9 && Mask[4*i+2] == 10 && Mask[4*i+3] == 11)
+              || (Mask[4*i] == 12 && Mask[4*i+1] == 13 && Mask[4*i+2] == 14 && Mask[4*i+3] == 15))){
+      TwoQWords = false;
+      break;
+    }
+  }
+
+  if (TwoQWords) {
+    int TwoQWordsMask = (Mask[Size-1] / (Size/2)) * 16 + Mask[0] / (Size/2);
+    return SDValue(DAG.getMachineNode(LoongArch::XVPERMI_Q, DL, MVT::v8f32, V1, V2,
+                              DAG.getTargetConstant(TwoQWordsMask, DL, MVT::i32)),
+                  0);
+  }
+
   return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v8f32, V1, V2,
                                                       Mask, Subtarget, DAG);
   // return SDValue();
 }
 
-/// High-level routine to lower various 256-bit x86 vector shuffles.
+/// High-level routine to lower various 256-bit LoongArch vector shuffles.
 ///
 /// This routine either breaks down the specific type of a 256-bit LoongArch 
 /// vector shuffle or splits it into two 128-bit shuffles and fuses the results
