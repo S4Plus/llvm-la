@@ -5792,6 +5792,28 @@ static SDValue lowerV4F64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
                          getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
   }
 
+  // If two half of the vector, that's the high v2i64 and the low v2i64,
+  // are respectively both from the same vector, we can use xvpermi.q inst.
+  bool TwoQWords = true;
+  int Size = Mask.size();
+  for (int i = 0; i < Size / 2; ++i) {
+    if (!((Mask[2*i] == 0 && Mask[2*i+1] == 1)
+          || (Mask[2*i] == 2 && Mask[2*i+1] == 3)
+            || (Mask[2*i] == 4 && Mask[2*i+1] == 5)
+              || (Mask[2*i] == 6 && Mask[2*i+1] == 7))){
+      TwoQWords = false;
+      break;
+    }
+  }
+
+  if (TwoQWords) {
+    int TwoQWordsMask = (Mask[Size-1] / (Size/2)) * 16 + Mask[0] / (Size/2);
+    return SDValue(DAG.getMachineNode(LoongArch::XVPERMI_Q, DL, MVT::v4f64, V1, V2,
+                              DAG.getTargetConstant(TwoQWordsMask, DL, MVT::i32)),
+                  0);
+  }
+
+
   return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v4f64, V1, V2,
                                                     Mask, Subtarget, DAG);
 
@@ -5816,6 +5838,28 @@ static SDValue lowerV4I64_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
     return DAG.getNode(LoongArchISD::XVPERMI, DL, MVT::v4i64, V1,
                          getV4LoongArchShuffleImm8ForMask(Mask, DL, DAG));
   }
+
+  // If two half of the vector, that's the high v2i64 and the low v2i64,
+  // are respectively both from the same vector, we can use xvpermi.q inst.
+  bool TwoQWords = true;
+  int Size = Mask.size();
+  for (int i = 0; i < Size / 2; ++i) {
+    if (!((Mask[2*i] == 0 && Mask[2*i+1] == 1)
+          || (Mask[2*i] == 2 && Mask[2*i+1] == 3)
+            || (Mask[2*i] == 4 && Mask[2*i+1] == 5)
+              || (Mask[2*i] == 6 && Mask[2*i+1] == 7))){
+      TwoQWords = false;
+      break;
+    }
+  }
+
+  if (TwoQWords) {
+    int TwoQWordsMask = (Mask[Size-1] / (Size/2)) * 16 + Mask[0] / (Size/2);
+    return SDValue(DAG.getMachineNode(LoongArch::XVPERMI_Q, DL, MVT::v4i64, V1, V2,
+                              DAG.getTargetConstant(TwoQWordsMask, DL, MVT::i32)),
+                  0);
+  }
+
 
   return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v4i64, V1, V2,
                                                     Mask, Subtarget, DAG);
