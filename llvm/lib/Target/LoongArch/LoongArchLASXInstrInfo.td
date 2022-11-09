@@ -36,6 +36,10 @@ def SDT_XVSHUF4I : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisInt<0>,
                                         SDTCisSameAs<0, 2>,
                                         SDTCisVT<3, i32>]>;
 
+def SDT_XVREPLVEI : SDTypeProfile<1, 2, [SDTCisVec<0>,
+                                         SDTCisInt<1>, SDTCisVec<1>,
+                                         SDTCisSameAs<0, 2>]>;
+
 def LoongArchXVSHUFI : SDNode<"LoongArchISD::XVSHFI", SDT_XVSHFI>;
 
 def LoongArchXVSELI  : SDNode<"LoongArchISD::XVSELI", SDT_XVSHFI>;
@@ -51,6 +55,8 @@ def LoongArchXVBROADCAST : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVBROADCAST>;
 def LoongArchINSVE : SDNode<"LoongArchISD::INSVE", SDT_INSVE>;
 
 def LoongArchXVSHUF4I : SDNode<"LoongArchISD::XVSHUF4I", SDT_XVSHUF4I>;
+
+def LoongArchXVREPLVEI : SDNode<"LoongArchISD::XVREPLVEI", SDT_XVREPLVEI>;
 
 def LoongArchXVPICKVE : SDNode<"LoongArchISD::XVPICKVE", SDT_INSVE>;
 
@@ -760,44 +766,48 @@ class LASX_COPY_U3_DESC_BASE<string instr_asm,
   list<dag> Pattern = [(set ROD:$rd, (OpNode (VecTy ROXJ:$xj), Imm:$ui3))];
 }
 
-class LASX_ELM_U4_VREPLVE_DESC_BASE_Intrinsic<string instr_asm,
-                                 SDPatternOperator OpNode,
+class LASX_ELM_U4_VREPLVE_DESC_BASE<string instr_asm,
+                                 SDPatternOperator OpNode, ValueType OpVT,
+                                 SplatComplexPattern SplatImm,
                                  RegisterOperand ROXD,
                                  RegisterOperand ROXJ = ROXD> {
- dag OutOperandList = (outs ROXD:$xd);
- dag InOperandList = (ins ROXJ:$xj, uimm4:$ui4);
- string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui4");
- list<dag> Pattern = [(set ROXD:$xd, (OpNode ROXJ:$xj, immZExt4:$ui4))];
+  dag OutOperandList = (outs ROXD:$xd);
+  dag InOperandList = (ins ROXJ:$xj, SplatImm.OpClass:$ui4);
+  string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui4");
+  list<dag> Pattern = [(set ROXD:$xd, (OpVT (OpNode SplatImm:$ui4, ROXJ:$xj)))];
 }
 
-class LASX_ELM_U3_VREPLVE_DESC_BASE_Intrinsic<string instr_asm,
-                                 SDPatternOperator OpNode,
+class LASX_ELM_U3_VREPLVE_DESC_BASE<string instr_asm,
+                                 SDPatternOperator OpNode, ValueType OpVT,
+                                 SplatComplexPattern SplatImm,
                                  RegisterOperand ROXD,
                                  RegisterOperand ROXJ = ROXD> {
- dag OutOperandList = (outs ROXD:$xd);
- dag InOperandList = (ins ROXJ:$xj, uimm3:$ui3);
- string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui3");
- list<dag> Pattern = [(set ROXD:$xd, (OpNode ROXJ:$xj, immZExt3:$ui3))];
+  dag OutOperandList = (outs ROXD:$xd);
+  dag InOperandList = (ins ROXJ:$xj, SplatImm.OpClass:$ui3);
+  string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui3");
+  list<dag> Pattern = [(set ROXD:$xd, (OpVT (OpNode SplatImm:$ui3, ROXJ:$xj)))];
 }
 
-class LASX_ELM_U2_VREPLVE_DESC_BASE_Intrinsic<string instr_asm,
-                                 SDPatternOperator OpNode,
+class LASX_ELM_U2_VREPLVE_DESC_BASE<string instr_asm,
+                                 SDPatternOperator OpNode, ValueType OpVT,
+                                 SplatComplexPattern SplatImm,
                                  RegisterOperand ROXD,
                                  RegisterOperand ROXJ = ROXD> {
- dag OutOperandList = (outs ROXD:$xd);
- dag InOperandList = (ins ROXJ:$xj, uimm2:$ui2);
- string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui2");
- list<dag> Pattern = [(set ROXD:$xd, (OpNode ROXJ:$xj, immZExt2:$ui2))];
+  dag OutOperandList = (outs ROXD:$xd);
+  dag InOperandList = (ins ROXJ:$xj, SplatImm.OpClass:$ui2);
+  string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui2");
+  list<dag> Pattern = [(set ROXD:$xd, (OpVT (OpNode SplatImm:$ui2, ROXJ:$xj)))];
 }
 
-class LASX_ELM_U1_VREPLVE_DESC_BASE_Intrinsic<string instr_asm,
-                                 SDPatternOperator OpNode,
+class LASX_ELM_U1_VREPLVE_DESC_BASE<string instr_asm,
+                                 SDPatternOperator OpNode, ValueType OpVT,
+                                 SplatComplexPattern SplatImm,
                                  RegisterOperand ROXD,
                                  RegisterOperand ROXJ = ROXD> {
- dag OutOperandList = (outs ROXD:$xd);
- dag InOperandList = (ins ROXJ:$xj, uimm1:$ui1);
- string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui1");
- list<dag> Pattern = [(set ROXD:$xd, (OpNode ROXJ:$xj, immZExt1:$ui1))];
+  dag OutOperandList = (outs ROXD:$xd);
+  dag InOperandList = (ins ROXJ:$xj, SplatImm.OpClass:$ui1);
+  string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $ui1");
+  list<dag> Pattern = [(set ROXD:$xd, (OpVT (OpNode SplatImm:$ui1, ROXJ:$xj)))];
 }
 
 class LASX_XVBROADCAST_DESC_BASE<string instr_asm, SDPatternOperator OpNode,
@@ -3436,17 +3446,22 @@ def XVPICKVE2GR_DU : LASX_ELM_COPY_U2<0b01110110111100111110>,
 
 
 def XVREPL128VEI_B : LASX_I4_U<0b011101101111011110>,
-                     LASX_ELM_U4_VREPLVE_DESC_BASE_Intrinsic<"xvrepl128vei.b", int_loongarch_lasx_xvrepl128vei_b, LASX256BOpnd>;
+                     LASX_ELM_U4_VREPLVE_DESC_BASE<"xvrepl128vei.b", LoongArchXVREPLVEI, v32i8, xvsplati8_uimm4, LASX256BOpnd>;
 
 def XVREPL128VEI_H : LASX_I3_U<0b0111011011110111110>,
-                     LASX_ELM_U3_VREPLVE_DESC_BASE_Intrinsic<"xvrepl128vei.h", int_loongarch_lasx_xvrepl128vei_h, LASX256HOpnd>;
+                     LASX_ELM_U3_VREPLVE_DESC_BASE<"xvrepl128vei.h", LoongArchXVREPLVEI, v16i16, xvsplati16_uimm3, LASX256HOpnd>;
 
 def XVREPL128VEI_W : LASX_I2_U<0b01110110111101111110>,
-                     LASX_ELM_U2_VREPLVE_DESC_BASE_Intrinsic<"xvrepl128vei.w", int_loongarch_lasx_xvrepl128vei_w, LASX256WOpnd>;
+                     LASX_ELM_U2_VREPLVE_DESC_BASE<"xvrepl128vei.w", LoongArchXVREPLVEI, v8i32, xvsplati32_uimm2, LASX256WOpnd>;
 
 def XVREPL128VEI_D : LASX_I1_U<0b011101101111011111110>,
-                     LASX_ELM_U1_VREPLVE_DESC_BASE_Intrinsic<"xvrepl128vei.d", int_loongarch_lasx_xvrepl128vei_d, LASX256DOpnd>;
+                     LASX_ELM_U1_VREPLVE_DESC_BASE<"xvrepl128vei.d", LoongArchXVREPLVEI, v4i64, xvsplati64_uimm1, LASX256DOpnd>;
 
+def : LASXPat<(LoongArchXVREPLVEI xvsplati32_uimm2:$ui2, (v8f32 LASX256W:$xj)),
+              (!cast<Instruction>(XVREPL128VEI_W) LASX256W:$xj, xvsplati32_uimm2:$ui2)>;
+
+def : LASXPat<(LoongArchXVREPLVEI xvsplati64_uimm1:$ui1, (v4f64 LASX256D:$xj)),
+              (!cast<Instruction>(XVREPL128VEI_D) LASX256D:$xj, xvsplati64_uimm1:$ui1)>;
 
 def XVINSVE0_W : LASX_I3_U<0b0111011011111111110>,
                  LASX_BIT_3_4O_DESC_BASE<"xvinsve0.w", int_loongarch_lasx_xvinsve0_w, uimm3, immZExt3, LASX256WOpnd>;
