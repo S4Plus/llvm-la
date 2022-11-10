@@ -54,7 +54,9 @@ def LoongArchXSHF : SDNode<"LoongArchISD::SHF", SDT_SHUFF_2OP_IMM>;
 
 def LoongArchXVBROADCAST : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVBROADCAST>;
 
-def LoongArchXVREPLVE0 : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVREPLVE0>;
+def LoongArchXVREPLVE0 : SDNode<"LoongArchISD::XVREPLVEI0", SDT_XVREPLVE0>;
+
+def LoongArchXVREPLVE0Q : SDNode<"LoongArchISD::XVREPLVEI0Q", SDT_XVREPLVE0>;
 
 def LoongArchINSVE : SDNode<"LoongArchISD::INSVE", SDT_INSVE>;
 
@@ -3500,7 +3502,7 @@ def : LASXPat<(LoongArchXVREPLVE0 (v4f64 LASX256D:$xj)),
               (!cast<Instruction>(XVREPLVE0_D) LASX256D:$xj)>;
 
 def XVREPLVE0_Q : LASX_2R<0b0111011100000111111100>,
-                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.q", int_loongarch_lasx_xvreplve0_q, v32i8, LASX256BOpnd>;
+                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.q", LoongArchXVREPLVE0Q, v32i8, LASX256BOpnd>;
 
 
 def XVSLLWIL_H_B : LASX_I3_U<0b0111011100001000001>,

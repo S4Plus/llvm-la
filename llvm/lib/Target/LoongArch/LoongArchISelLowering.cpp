@@ -186,6 +186,8 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::XVPERMI:           return "LoongArchISD::XVPERMI";
   case LoongArchISD::XVSHUF4I:          return "LoongArchISD::XVSHUF4I";
   case LoongArchISD::XVREPLVEI:         return "LoongArchISD::XVREPLVEI";
+  case LoongArchISD::XVREPLVEI0:       return "LoongArchISD::XVREPLVEI0";
+  case LoongArchISD::XVREPLVEI0Q:       return "LoongArchISD::XVREPLVEI0Q";
   case LoongArchISD::REVBD:             return "LoongArchISD::REVBD";
   case LoongArchISD::XVPERM:            return "LoongArchISD::XVPERM";
   }
@@ -2976,6 +2978,7 @@ static SDValue lowerVECTOR_SHUFFLE_XVREPLVE0(SDValue Op, EVT ResTy,
                                          SelectionDAG &DAG) {
   assert((Indices.size() % 2) == 0);
   unsigned Size = Indices.size();
+  unsigned HalfSize = Indices.size() / 2;
   SDLoc DL(Op);
 
   SDValue Op0;
@@ -2991,13 +2994,29 @@ static SDValue lowerVECTOR_SHUFFLE_XVREPLVE0(SDValue Op, EVT ResTy,
   else
     return SDValue();
 
+  bool Isbhwd = true;
+  bool Isq = true;
   for (int i = 0; i < Size; ++i) {
     int Idx = Indices[i];
-    if (Idx != mask)
-      return SDValue();
+    if (Idx != mask) {
+      Isbhwd = false;
+      break;
+    }
+  }
+  for (int i = 0; i < HalfSize; ++i) {
+    int Idx = Indices[i];
+    if (Idx != Indices[i + HalfSize] || Idx != mask + i){
+      Isq = false;
+      break;
+    }
   }
 
-  return DAG.getNode(LoongArchISD::XVBROADCAST, DL, ResTy, Op0);
+  if (Isbhwd)
+    return DAG.getNode(LoongArchISD::XVREPLVEI0, DL, ResTy, Op0);
+  else if (Isq)
+    return DAG.getNode(LoongArchISD::XVREPLVEI0Q, DL, ResTy, Op0);
+  else
+    return SDValue();
 }
 
 static SDValue lowerVECTOR_SHUFFLE_XVPICKEV(SDValue Op, EVT ResTy,
