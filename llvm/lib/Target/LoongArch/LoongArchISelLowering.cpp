@@ -186,8 +186,8 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::XVPERMI:           return "LoongArchISD::XVPERMI";
   case LoongArchISD::XVSHUF4I:          return "LoongArchISD::XVSHUF4I";
   case LoongArchISD::XVREPLVEI:         return "LoongArchISD::XVREPLVEI";
-  case LoongArchISD::XVREPLVEI0:       return "LoongArchISD::XVREPLVEI0";
-  case LoongArchISD::XVREPLVEI0Q:       return "LoongArchISD::XVREPLVEI0Q";
+  case LoongArchISD::XVREPLVE0:         return "LoongArchISD::XVREPLVE0";
+  case LoongArchISD::XVREPLVE0Q:        return "LoongArchISD::XVREPLVE0Q";
   case LoongArchISD::REVBD:             return "LoongArchISD::REVBD";
   case LoongArchISD::XVPERM:            return "LoongArchISD::XVPERM";
   }
@@ -3012,9 +3012,9 @@ static SDValue lowerVECTOR_SHUFFLE_XVREPLVE0(SDValue Op, EVT ResTy,
   }
 
   if (Isbhwd)
-    return DAG.getNode(LoongArchISD::XVREPLVEI0, DL, ResTy, Op0);
+    return DAG.getNode(LoongArchISD::XVREPLVE0, DL, ResTy, Op0);
   else if (Isq)
-    return DAG.getNode(LoongArchISD::XVREPLVEI0Q, DL, ResTy, Op0);
+    return DAG.getNode(LoongArchISD::XVREPLVE0Q, DL, ResTy, Op0);
   else
     return SDValue();
 }

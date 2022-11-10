@@ -128,8 +128,8 @@ class TargetRegisterClass;
       XVPERMI,
       XVSHUF4I,
       XVREPLVEI,
-      XVREPLVEI0,
-      XVREPLVEI0Q,
+      XVREPLVE0,
+      XVREPLVE0Q,
       REVBD,
 
       // Extended vector element extraction
