@@ -23,6 +23,8 @@ def SDT_XVSHFI : SDTypeProfile<1, 3, [SDTCisInt<0>, SDTCisVec<0>,
                                       SDTCisVT<3, i32>]>;
 def SDT_XVBROADCAST : SDTypeProfile<1, 1, [SDTCisVec<0>]>;
 
+def SDT_XVREPLVE0 : SDTypeProfile<1, 1, [SDTCisVec<0>, SDTCisSameAs<0, 1>]>;
+
 def SDT_INSVE : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisSameAs<0, 1>,
                                      SDTCisSameAs<1, 2>,
                                      SDTCisVT<3, i32>]>;
@@ -51,6 +53,8 @@ def LoongArchXVPERM : SDNode<"LoongArchISD::XVPERM", SDT_SHUFF_3OP>;
 def LoongArchXSHF : SDNode<"LoongArchISD::SHF", SDT_SHUFF_2OP_IMM>;
 
 def LoongArchXVBROADCAST : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVBROADCAST>;
+
+def LoongArchXVREPLVE0 : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVREPLVE0>;
 
 def LoongArchINSVE : SDNode<"LoongArchISD::INSVE", SDT_INSVE>;
 
@@ -3478,16 +3482,22 @@ def XVPICKVE_D : LASX_I2_U<0b01110111000000111110>,
 
 
 def XVREPLVE0_B : LASX_2R<0b0111011100000111000000>,
-                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.b", int_loongarch_lasx_xvreplve0_b, v32i8, LASX256BOpnd>;
+                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.b", LoongArchXVREPLVE0, v32i8, LASX256BOpnd>;
 
 def XVREPLVE0_H : LASX_2R<0b0111011100000111100000>,
-                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.h", int_loongarch_lasx_xvreplve0_h, v16i16, LASX256HOpnd>;
+                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.h", LoongArchXVREPLVE0, v16i16, LASX256HOpnd>;
 
 def XVREPLVE0_W : LASX_2R<0b0111011100000111110000>,
-                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.w", int_loongarch_lasx_xvreplve0_w, v8i32, LASX256WOpnd> ;
+                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.w", LoongArchXVREPLVE0, v8i32, LASX256WOpnd> ;
 
 def XVREPLVE0_D : LASX_2R<0b0111011100000111111000>,
-                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.d", xvbroadcast_v4i64, v4i64, LASX256DOpnd>;
+                  LASX_XVBROADCAST_DESC_BASE<"xvreplve0.d", LoongArchXVREPLVE0, v4i64, LASX256DOpnd>;
+
+def : LASXPat<(LoongArchXVREPLVE0 (v8f32 LASX256W:$xj)),
+              (!cast<Instruction>(XVREPLVE0_W) LASX256W:$xj)>;
+
+def : LASXPat<(LoongArchXVREPLVE0 (v4f64 LASX256D:$xj)),
+              (!cast<Instruction>(XVREPLVE0_D) LASX256D:$xj)>;
 
 def XVREPLVE0_Q : LASX_2R<0b0111011100000111111100>,
                   LASX_XVBROADCAST_DESC_BASE<"xvreplve0.q", int_loongarch_lasx_xvreplve0_q, v32i8, LASX256BOpnd>;

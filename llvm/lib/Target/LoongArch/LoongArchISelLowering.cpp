@@ -2971,6 +2971,38 @@ static SDValue lowerVECTOR_SHUFFLE_XVREPLVEI(SDValue Op, EVT ResTy,
   return DAG.getNode(LoongArchISD::XVREPLVEI, DL, ResTy, MaskVec, Op0);
 }
 
+static SDValue lowerVECTOR_SHUFFLE_XVREPLVE0(SDValue Op, EVT ResTy,
+                                         SmallVector<int, 32> Indices,
+                                         SelectionDAG &DAG) {
+  assert((Indices.size() % 2) == 0);
+  unsigned Size = Indices.size();
+  SDLoc DL(Op);
+
+  for (int i = 0; i < Size; ++i) {
+    int Idx = Indices[i];
+    if (Idx != 0 && Idx != Size)
+      return SDValue();
+  }
+
+  bool Using1stVec = false;
+  bool Using2ndVec = false;
+  if (Indices[0] == 0) {
+    Using1stVec = true;
+  } else {
+    Using2ndVec = true;
+  }
+
+  SDValue Op0;
+  if (Using1stVec)
+    Op0 = Op->getOperand(0);
+  else if (Using2ndVec)
+    Op0 = Op->getOperand(1);
+  else
+    llvm_unreachable("shuffle vector mask references neither vector operand?");
+
+  return DAG.getNode(LoongArchISD::XVBROADCAST, DL, ResTy, Op0);
+}
+
 static SDValue lowerVECTOR_SHUFFLE_XVPICKEV(SDValue Op, EVT ResTy,
                                          SmallVector<int, 32> Indices,
                                          SelectionDAG &DAG) {
@@ -6118,6 +6150,8 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
       return Result;
     if (isVECTOR_SHUFFLE_XVREPLVEI(Op, ResTy, Indices, DAG))
       return lowerVECTOR_SHUFFLE_XVREPLVEI(Op, ResTy, Indices, DAG);
+    if ((Result = lowerVECTOR_SHUFFLE_XVREPLVE0(Op, ResTy, Indices, DAG)))
+      return Result;
     if ((Result = lowerVECTOR_SHUFFLE_XVPACKEV(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerVECTOR_SHUFFLE_XVPACKOD(Op, ResTy, Indices, DAG)))
