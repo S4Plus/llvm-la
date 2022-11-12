@@ -3145,6 +3145,37 @@ static SDValue lowerVECTOR_SHUFFLE_XSHF(SDValue Op, EVT ResTy,
                      DAG.getConstant(Imm, DL, MVT::i32));
 }
 
+static SDValue lowerVECTOR_SHUFFLE_XSHFD(SDValue Op, EVT ResTy,
+                                         SmallVector<int, 32> Indices,
+                                         SelectionDAG &DAG) {
+  MVT VT = Op.getSimpleValueType();
+  SDValue Op1 = Op.getOperand(0);
+  SDValue Op2 = Op.getOperand(1);
+  SDLoc DL(Op);
+
+  if (VT != MVT::v4i64 && VT != MVT::v4f64)
+    return SDValue();
+
+  unsigned Size = Indices.size();
+  unsigned HalfSize = Indices.size() / 2;
+
+  for (int i = 0; i < HalfSize; ++i) {
+    int Idx = Indices[i];
+    if (Idx < 0 ||
+          (Idx >= HalfSize && Idx < Size) ||
+              Idx >= Size + HalfSize)
+      return SDValue();
+
+    if (Indices[i + HalfSize] != Idx + HalfSize)
+      return SDValue();
+  }
+
+  int XSHFDMask = (Indices[1] % Size) * 4 + (Indices[0] % Size);
+
+  return DAG.getNode(LoongArchISD::XVSHUF4I, DL, ResTy, Op1, Op2,
+                     DAG.getConstant(XSHFDMask, DL, MVT::i32));
+}
+
 static bool isConstantOrUndef(const SDValue Op) {
   if (Op->isUndef())
     return true;
@@ -6181,6 +6212,8 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
     if ((Result = lowerVECTOR_SHUFFLE_XVPICKOD(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerVECTOR_SHUFFLE_XSHF(Op, ResTy, Indices, DAG)))
+      return Result;
+    if ((Result = lowerVECTOR_SHUFFLE_XSHFD(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result =
              lowerVECTOR_SHUFFLE_INSVE(DL, VT, ResTy, Op1, Op2, Mask, DAG)))

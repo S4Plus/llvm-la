@@ -33,7 +33,7 @@ def SDT_XVPICKVE : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisSameAs<0, 1>,
                                         SDTCisSameAs<1, 2>,
                                         SDTCisVT<3, i32>]>;
 
-def SDT_XVSHUF4I : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisInt<0>,
+def SDT_XVSHUF4I : SDTypeProfile<1, 3, [SDTCisVec<0>,
                                         SDTCisSameAs<0, 1>,
                                         SDTCisSameAs<0, 2>,
                                         SDTCisVT<3, i32>]>;
@@ -5155,6 +5155,9 @@ def : LASXPat<(int_loongarch_lasx_xvshuf4i_w  (v8i32 LASX256WOpnd:$a), uimm8_32:
 
 def : LASXPat<(LoongArchXVSHUF4I  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm8_32:$ui8),
               (XVSHUF4I_D  LASX256D:$a, LASX256D:$b, uimm8_32:$ui8)>;
+
+def : LASXPat<(LoongArchXVSHUF4I  (v4f64 LASX256D:$a), (v4f64 LASX256D:$b), uimm8_32:$ui8),
+              (!cast<Instruction>(XVSHUF4I_D)  LASX256D:$a, LASX256D:$b, uimm8_32:$ui8)>;
 
 def : LASXPat<(int_loongarch_lasx_xvpermi_d  (v4i64 LASX256D:$a), uimm8_32:$ui8),
               (XVPERMI_D  LASX256D:$a, uimm8_32:$ui8)>;
