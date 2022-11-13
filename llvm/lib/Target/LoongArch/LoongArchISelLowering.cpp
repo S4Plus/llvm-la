@@ -175,6 +175,7 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::VILVL:             return "LoongArchISD::VILVL";
   case LoongArchISD::VPICKEV:           return "LoongArchISD::VPICKEV";
   case LoongArchISD::VPICKOD:           return "LoongArchISD::VPICKOD";
+  case LoongArchISD::VSHUF4I:           return "LoongArchISD::VSHUF4I";
   case LoongArchISD::INSVE:             return "LoongArchISD::INSVE";
   case LoongArchISD::VROR:              return "LoongArchISD::VROR";
   case LoongArchISD::VRORI:             return "LoongArchISD::VRORI";
@@ -2403,6 +2404,30 @@ static SDValue lowerVECTOR_SHUFFLE_SHF(SDValue Op, EVT ResTy,
   SDLoc DL(Op);
   return DAG.getNode(LoongArchISD::SHF, DL, ResTy,
                      Op->getOperand(0), DAG.getConstant(Imm, DL, MVT::i32));
+}
+
+static SDValue lowerVECTOR_SHUFFLE_SHFD(SDValue Op, EVT ResTy,
+                                       SmallVector<int, 16> Indices,
+                                       SelectionDAG &DAG) {
+  MVT VT = Op.getSimpleValueType();
+  SDValue Op1 = Op.getOperand(0);
+  SDValue Op2 = Op.getOperand(1);
+  SDLoc DL(Op);
+
+  if (VT != MVT::v2i64 && VT != MVT::v2f64)
+    return SDValue();
+
+  unsigned Size = Indices.size();
+  for (int i = 0; i < Size; ++i) {
+    int Idx = Indices[i];
+    if (Idx < 0 || Idx >= Size * 2)
+      return SDValue();
+  }
+
+  int SHFDMask = Indices[1] * 4 + Indices[0];
+
+  return DAG.getNode(LoongArchISD::VSHUF4I, DL, ResTy, Op1, Op2,
+                     DAG.getConstant(SHFDMask, DL, MVT::i32));
 }
 
 /// Determine whether a range fits a regular pattern of values.
@@ -6179,6 +6204,8 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
     if ((Result = lowerVECTOR_SHUFFLE_VPICKOD(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerVECTOR_SHUFFLE_SHF(Op, ResTy, Indices, DAG)))
+      return Result;
+    if ((Result = lowerVECTOR_SHUFFLE_SHFD(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerHalfUndef_LSX(DL, ResTy, VT, Op1, Op2, Mask, DAG)))
       return Result;
