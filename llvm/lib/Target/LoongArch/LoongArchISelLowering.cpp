@@ -175,7 +175,7 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::VILVL:             return "LoongArchISD::VILVL";
   case LoongArchISD::VPICKEV:           return "LoongArchISD::VPICKEV";
   case LoongArchISD::VPICKOD:           return "LoongArchISD::VPICKOD";
-  case LoongArchISD::VSHUF4I:           return "LoongArchISD::VSHUF4I";
+  case LoongArchISD::VSHF4ID_PERMIW:    return "LoongArchISD::VSHF4ID_PERMIW";
   case LoongArchISD::INSVE:             return "LoongArchISD::INSVE";
   case LoongArchISD::VROR:              return "LoongArchISD::VROR";
   case LoongArchISD::VRORI:             return "LoongArchISD::VRORI";
@@ -2426,8 +2426,59 @@ static SDValue lowerVECTOR_SHUFFLE_SHFD(SDValue Op, EVT ResTy,
 
   int SHFDMask = Indices[1] * 4 + Indices[0];
 
-  return DAG.getNode(LoongArchISD::VSHUF4I, DL, ResTy, Op1, Op2,
+  return DAG.getNode(LoongArchISD::VSHF4ID_PERMIW, DL, ResTy, Op1, Op2,
                      DAG.getConstant(SHFDMask, DL, MVT::i32));
+}
+
+static SDValue lowerVECTOR_SHUFFLE_PERMIW(SDValue Op, EVT ResTy,
+                                       SmallVector<int, 16> Indices,
+                                       SelectionDAG &DAG) {
+  MVT VT = Op.getSimpleValueType();
+  SDLoc DL(Op);
+  SDValue Op1 = Op.getOperand(0);
+  SDValue Op2 = Op.getOperand(1);
+  unsigned Size = Indices.size();
+  unsigned HalfSize = Indices.size() / 2;
+  int PERMIWMask = -1;
+
+  if (VT != MVT::v4i32 && VT != MVT::v4f32)
+    return SDValue();
+
+  bool CheckLH = true;
+  for (int i = 0; i < HalfSize; ++i) {
+    int Idxl = Indices[i];
+    int Idxh = Indices[i + HalfSize];
+    if (!((Idxl >= 0 && Idxl < Size) && (Idxh >= Size && Idxh < Size * 2))) {
+      CheckLH = false;
+      break;
+    }
+  }
+
+  if (CheckLH) {
+    PERMIWMask = (Indices[3] % Size) * 64 + (Indices[2] % Size) * 16
+                     + Indices[1] * 4 + Indices[0];
+    return DAG.getNode(LoongArchISD::VSHF4ID_PERMIW, DL, ResTy, Op1, Op2,
+                       DAG.getConstant(PERMIWMask, DL, MVT::i32));
+  }
+
+  bool CheckHL = true;
+  for (int i = 0; i < HalfSize; ++i) {
+    int Idxl = Indices[i];
+    int Idxh = Indices[i + HalfSize];
+    if (!((Idxh >= 0 && Idxh < Size) && (Idxl >= Size && Idxl < Size * 2))) {
+      CheckHL = false;
+      break;
+    }
+  }
+
+  if (CheckHL) {
+    PERMIWMask = (Indices[1] % Size) * 64 + (Indices[0] % Size) * 16
+                     + Indices[3] * 4 + Indices[2];
+    return DAG.getNode(LoongArchISD::VSHF4ID_PERMIW, DL, ResTy, Op2, Op1,
+                       DAG.getConstant(PERMIWMask, DL, MVT::i32));
+  }
+
+  return SDValue();
 }
 
 /// Determine whether a range fits a regular pattern of values.
@@ -6206,6 +6257,8 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
     if ((Result = lowerVECTOR_SHUFFLE_SHF(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerVECTOR_SHUFFLE_SHFD(Op, ResTy, Indices, DAG)))
+      return Result;
+    if ((Result = lowerVECTOR_SHUFFLE_PERMIW(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerHalfUndef_LSX(DL, ResTy, VT, Op1, Op2, Mask, DAG)))
       return Result;
