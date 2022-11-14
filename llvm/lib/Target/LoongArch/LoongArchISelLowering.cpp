@@ -185,7 +185,7 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::UVABSD:            return "LoongArchISD::UVABSD";
   case LoongArchISD::XVPICKVE:          return "LoongArchISD::XVPICKVE";
   case LoongArchISD::XVPERMI:           return "LoongArchISD::XVPERMI";
-  case LoongArchISD::XVSHUF4I:          return "LoongArchISD::XVSHUF4I";
+  case LoongArchISD::XVSHF4ID_PERMIW:   return "LoongArchISD::XVSHF4ID_PERMIW";
   case LoongArchISD::XVREPLVEI:         return "LoongArchISD::XVREPLVEI";
   case LoongArchISD::XVREPLVE0:         return "LoongArchISD::XVREPLVE0";
   case LoongArchISD::XVREPLVE0Q:        return "LoongArchISD::XVREPLVE0Q";
@@ -3248,8 +3248,55 @@ static SDValue lowerVECTOR_SHUFFLE_XSHFD(SDValue Op, EVT ResTy,
 
   int XSHFDMask = (Indices[1] % Size) * 4 + (Indices[0] % Size);
 
-  return DAG.getNode(LoongArchISD::XVSHUF4I, DL, ResTy, Op1, Op2,
+  return DAG.getNode(LoongArchISD::XVSHF4ID_PERMIW, DL, ResTy, Op1, Op2,
                      DAG.getConstant(XSHFDMask, DL, MVT::i32));
+}
+
+static SDValue lowerVECTOR_SHUFFLE_XVPERMIW(SDValue Op, EVT ResTy,
+                                         SmallVector<int, 32> Indices,
+                                         SelectionDAG &DAG) {
+  MVT VT = Op.getSimpleValueType();
+  SDValue Op1 = Op.getOperand(0);
+  SDValue Op2 = Op.getOperand(1);
+  SDLoc DL(Op);
+
+  if (VT != MVT::v8i32 && VT != MVT::v8f32)
+    return SDValue();
+
+  unsigned Size = Indices.size();
+  unsigned HalfSize = Indices.size() / 2;
+
+  for (int i = 0; i < HalfSize; ++i) {
+    int Idx = Indices[i];
+    if ((Idx < 0) || (Idx + HalfSize != Indices[i + HalfSize])) {
+      return SDValue();
+    }
+  }
+
+  if (Indices[0] < HalfSize) {
+    if (Indices[1] >= HalfSize || 
+          Indices[2] < Size || Indices[2] >= Size + HalfSize || 
+            Indices[3] < Size || Indices[3] >= Size + HalfSize) {
+      return SDValue();
+    }
+    int PERMIWMask = (Indices[3] % Size) * 64 + (Indices[2] % Size) * 16
+                     + Indices[1] * 4 + Indices[0];
+    return DAG.getNode(LoongArchISD::XVSHF4ID_PERMIW, DL, ResTy, Op1, Op2,
+                       DAG.getConstant(PERMIWMask, DL, MVT::i32));
+  }
+
+  if (Indices[0] >= Size && Indices[0] < Size + HalfSize) {
+    if (Indices[1] < Size || Indices[1] >= Size + HalfSize ||
+          Indices[2] >= HalfSize || Indices[3] >= HalfSize) {
+      return SDValue();
+    }
+    int PERMIWMask = (Indices[1] % Size) * 64 + (Indices[0] % Size) * 16
+                     + Indices[3] * 4 + Indices[2];
+    return DAG.getNode(LoongArchISD::XVSHF4ID_PERMIW, DL, ResTy, Op2, Op1,
+                       DAG.getConstant(PERMIWMask, DL, MVT::i32));
+  }
+
+  return SDValue();
 }
 
 static bool isConstantOrUndef(const SDValue Op) {
@@ -5791,7 +5838,7 @@ static SDValue lowerVECTOR_SHUFFLE_XVSHUF(const SDLoc &DL, MVT VT, EVT ResTy,
     if (!CheckV)
       return SDValue();
     else {
-      SDValue Res = DAG.getNode(LoongArchISD::XVSHUF4I, DL, ResTy, Op1, Op2,
+      SDValue Res = DAG.getNode(LoongArchISD::XVSHF4ID_PERMIW, DL, ResTy, Op1, Op2,
                                 DAG.getConstant(8, DL, MVT::i32));
       return DAG.getNode(LoongArchISD::XVPERMI, DL, ResTy, Res,
                          DAG.getConstant(0xD8, DL, MVT::i32));
@@ -6294,6 +6341,8 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
     if ((Result = lowerVECTOR_SHUFFLE_XSHF(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerVECTOR_SHUFFLE_XSHFD(Op, ResTy, Indices, DAG)))
+      return Result;
+    if ((Result = lowerVECTOR_SHUFFLE_XVPERMIW(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result =
              lowerVECTOR_SHUFFLE_INSVE(DL, VT, ResTy, Op1, Op2, Mask, DAG)))
