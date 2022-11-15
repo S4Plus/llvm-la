@@ -127,7 +127,7 @@ class TargetRegisterClass;
       XVPICKVE,
       XVPERM,
       XVPERMI,
-      XVSHF4ID_PERMIW,
+      XVSHFID_PMIW_EXT,
       XVREPLVEI,
       XVREPLVE0,
       XVREPLVE0Q,
