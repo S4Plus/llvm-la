@@ -175,7 +175,7 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::VILVL:             return "LoongArchISD::VILVL";
   case LoongArchISD::VPICKEV:           return "LoongArchISD::VPICKEV";
   case LoongArchISD::VPICKOD:           return "LoongArchISD::VPICKOD";
-  case LoongArchISD::VSHF4ID_PERMIW:    return "LoongArchISD::VSHF4ID_PERMIW";
+  case LoongArchISD::VSHFID_PMIW_EXT:   return "LoongArchISD::VSHFID_PMIW_EXT";
   case LoongArchISD::INSVE:             return "LoongArchISD::INSVE";
   case LoongArchISD::VROR:              return "LoongArchISD::VROR";
   case LoongArchISD::VRORI:             return "LoongArchISD::VRORI";
@@ -2426,7 +2426,7 @@ static SDValue lowerVECTOR_SHUFFLE_SHFD(SDValue Op, EVT ResTy,
 
   int SHFDMask = Indices[1] * 4 + Indices[0];
 
-  return DAG.getNode(LoongArchISD::VSHF4ID_PERMIW, DL, ResTy, Op1, Op2,
+  return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op1, Op2,
                      DAG.getConstant(SHFDMask, DL, MVT::i32));
 }
 
@@ -2457,7 +2457,7 @@ static SDValue lowerVECTOR_SHUFFLE_PERMIW(SDValue Op, EVT ResTy,
   if (CheckLH) {
     PERMIWMask = (Indices[3] % Size) * 64 + (Indices[2] % Size) * 16
                      + Indices[1] * 4 + Indices[0];
-    return DAG.getNode(LoongArchISD::VSHF4ID_PERMIW, DL, ResTy, Op1, Op2,
+    return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op1, Op2,
                        DAG.getConstant(PERMIWMask, DL, MVT::i32));
   }
 
@@ -2474,8 +2474,59 @@ static SDValue lowerVECTOR_SHUFFLE_PERMIW(SDValue Op, EVT ResTy,
   if (CheckHL) {
     PERMIWMask = (Indices[1] % Size) * 64 + (Indices[0] % Size) * 16
                      + Indices[3] * 4 + Indices[2];
-    return DAG.getNode(LoongArchISD::VSHF4ID_PERMIW, DL, ResTy, Op2, Op1,
+    return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op2, Op1,
                        DAG.getConstant(PERMIWMask, DL, MVT::i32));
+  }
+
+  return SDValue();
+}
+
+static SDValue lowerVECTOR_SHUFFLE_EXTRINS(SDValue Op, EVT ResTy,
+                                       SmallVector<int, 16> Indices,
+                                       SelectionDAG &DAG) {
+  assert((Indices.size() % 2) == 0);
+  unsigned Size = Indices.size();
+  SDLoc DL(Op);
+  SDValue Op0 = Op.getOperand(0);
+  SDValue Op1 = Op.getOperand(1);
+
+  int Using1stVec = 0;
+  int Using2ndVec = 0;
+  for (int i = 0; i < Size; ++i) {
+    int Idx = Indices[i];
+    if (Idx >= 0 && Idx < Size)
+      Using1stVec += 1;
+    else if (Idx >= Size && Idx < Size * 2)
+      Using2ndVec += 1;
+    else
+      return SDValue();
+  }
+
+  int EXTFromMask = -1;
+  int EXTToMask = -1;
+  if (Using1stVec == Size - 1 && Using2ndVec == 1) {
+    for (int i = 0; i < Size; ++i) {
+      if (Indices[i] >= Size) {
+        EXTFromMask = Indices[i] % Size;
+        EXTToMask = i;
+        break;
+      }
+    }
+    int EXTMask = (EXTToMask * 16) + EXTFromMask;
+    return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op0, Op1,
+                       DAG.getConstant(EXTMask, DL, MVT::i32));
+  }
+  else if (Using2ndVec == Size - 1 && Using1stVec == 1) {
+    for (int i = 0; i < Size; ++i) {
+      if (Indices[i] < Size) {
+        EXTFromMask = Indices[i];
+        EXTToMask = i;
+        break;
+      }
+    }
+    int EXTMask = (EXTToMask * 16) + EXTFromMask;
+    return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op1, Op0,
+                       DAG.getConstant(EXTMask, DL, MVT::i32));
   }
 
   return SDValue();
@@ -6306,6 +6357,8 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
     if ((Result = lowerVECTOR_SHUFFLE_SHFD(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerVECTOR_SHUFFLE_PERMIW(Op, ResTy, Indices, DAG)))
+      return Result;
+    if ((Result = lowerVECTOR_SHUFFLE_EXTRINS(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerHalfUndef_LSX(DL, ResTy, VT, Op1, Op2, Mask, DAG)))
       return Result;
