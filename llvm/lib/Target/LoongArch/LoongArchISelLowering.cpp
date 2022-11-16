@@ -2513,7 +2513,11 @@ static SDValue lowerVECTOR_SHUFFLE_EXTRINS(SDValue Op, EVT ResTy,
       if (Indices[i] >= Size) {
         EXTFromMask = Indices[i] % Size;
         EXTToMask = i;
-        break;
+      }
+      else {
+        if (Indices[i] != i) {
+          return SDValue();
+        }
       }
     }
     int EXTMask = (EXTToMask * 16) + EXTFromMask;
@@ -2525,7 +2529,11 @@ static SDValue lowerVECTOR_SHUFFLE_EXTRINS(SDValue Op, EVT ResTy,
       if (Indices[i] < Size) {
         EXTFromMask = Indices[i];
         EXTToMask = i;
-        break;
+      }
+      else {
+        if (Indices[i] != i + Size) {
+          return SDValue();
+        }
       }
     }
     int EXTMask = (EXTToMask * 16) + EXTFromMask;
@@ -3381,13 +3389,22 @@ static SDValue lowerVECTOR_SHUFFLE_XEXTRINS(SDValue Op, EVT ResTy,
   if (Using1stVec == Size - 2 && Using2ndVec == 2) {
     for (int i = 0; i < Size; ++i) {
       if (Indices[i] >= Size) {
-        if (Indices[i] + HalfSize != Indices[i + HalfSize])
+        if (i < HalfSize) {
+          if (Indices[i] + HalfSize != Indices[i + HalfSize])
+            return SDValue();
+          EXTFromMask = Indices[i] % Size;
+          EXTToMask = i;
+        }
+      }
+      else {
+        if (Indices[i] != i)
           return SDValue();
-        EXTFromMask = Indices[i] % Size;
-        EXTToMask = i;
-        break;
       }
     }
+
+    if (EXTToMask == -1)
+      return SDValue();
+
     int EXTMask = (EXTToMask * 16) + EXTFromMask;
     return DAG.getNode(LoongArchISD::XVEXTRINS, DL, ResTy, Op0, Op1,
                        DAG.getConstant(EXTMask, DL, MVT::i32));
@@ -3395,13 +3412,22 @@ static SDValue lowerVECTOR_SHUFFLE_XEXTRINS(SDValue Op, EVT ResTy,
   else if (Using2ndVec == Size - 2 && Using1stVec == 2) {
     for (int i = 0; i < Size; ++i) {
       if (Indices[i] < Size) {
-        if (Indices[i] + HalfSize != Indices[i + HalfSize])
+        if (i < HalfSize) {
+          if (Indices[i] + HalfSize != Indices[i + HalfSize])
+            return SDValue();
+          EXTFromMask = Indices[i];
+          EXTToMask = i;
+        }
+      }
+      else {
+        if (Indices[i] != i + Size)
           return SDValue();
-        EXTFromMask = Indices[i];
-        EXTToMask = i;
-        break;
       }
     }
+
+    if (EXTToMask == -1)
+      return SDValue();
+
     int EXTMask = (EXTToMask * 16) + EXTFromMask;
     return DAG.getNode(LoongArchISD::XVEXTRINS, DL, ResTy, Op1, Op0,
                        DAG.getConstant(EXTMask, DL, MVT::i32));
