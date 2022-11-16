@@ -60,7 +60,11 @@ def LoongArchXVREPLVE0Q : SDNode<"LoongArchISD::XVREPLVE0Q", SDT_XVREPLVE0>;
 
 def LoongArchINSVE : SDNode<"LoongArchISD::INSVE", SDT_INSVE>;
 
-def LoongArchXVSHFIDPMIWEXT : SDNode<"LoongArchISD::XVSHFID_PMIW_EXT", SDT_XVSHFIDPMIWEXT>;
+def LoongArchXVSHUF4I : SDNode<"LoongArchISD::XVSHUF4I", SDT_XVSHFIDPMIWEXT>;
+
+def LoongArchXVPERMIW : SDNode<"LoongArchISD::XVPERMIW", SDT_XVSHFIDPMIWEXT>;
+
+def LoongArchXVEXTRINS : SDNode<"LoongArchISD::XVEXTRINS", SDT_XVSHFIDPMIWEXT>;
 
 def LoongArchXVREPLVEI : SDNode<"LoongArchISD::XVREPLVEI", SDT_XVREPLVEI>;
 
@@ -3805,22 +3809,22 @@ def XVEXTRINS_W : LASX_I8_U<0b01110111100001>,
 def XVEXTRINS_D : LASX_I8_U<0b01110111100000>,
                   LASX_2R_3R_U8_DESC_BASE<"xvextrins.d", int_loongarch_lasx_xvextrins_d, LASX256DOpnd, LASX256DOpnd>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v32i8 LASX256B:$a), (v32i8 LASX256B:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVEXTRINS  (v32i8 LASX256B:$a), (v32i8 LASX256B:$b), uimm8_32:$ui8),
              (XVEXTRINS_B  LASX256B:$a, LASX256B:$b, uimm8_32:$ui8)>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v16i16 LASX256H:$a), (v16i16 LASX256H:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVEXTRINS  (v16i16 LASX256H:$a), (v16i16 LASX256H:$b), uimm8_32:$ui8),
              (XVEXTRINS_H  LASX256H:$a, LASX256H:$b, uimm8_32:$ui8)>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v8i32 LASX256W:$a), (v8i32 LASX256W:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVEXTRINS  (v8i32 LASX256W:$a), (v8i32 LASX256W:$b), uimm8_32:$ui8),
              (XVEXTRINS_W  LASX256W:$a, LASX256W:$b, uimm8_32:$ui8)>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v8f32 LASX256W:$a), (v8f32 LASX256W:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVEXTRINS  (v8f32 LASX256W:$a), (v8f32 LASX256W:$b), uimm8_32:$ui8),
              (!cast<Instruction>(XVEXTRINS_W)  LASX256W:$a, LASX256W:$b, uimm8_32:$ui8)>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVEXTRINS  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm8_32:$ui8),
              (XVEXTRINS_D  LASX256D:$a, LASX256D:$b, uimm8_32:$ui8)>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v4f64 LASX256D:$a), (v4f64 LASX256D:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVEXTRINS  (v4f64 LASX256D:$a), (v4f64 LASX256D:$b), uimm8_32:$ui8),
              (!cast<Instruction>(XVEXTRINS_D)  LASX256D:$a, LASX256D:$b, uimm8_32:$ui8)>;
 
 
@@ -3879,10 +3883,10 @@ def XVLDI_D : LASX_1R_I13_I10<0b01110111111000011>,
 def XVPERMI_W : LASX_I8_U<0b01110111111001>,
                 LASX_2R_3R_U8_DESC_BASE<"xvpermi.w", int_loongarch_lasx_xvpermi_w, LASX256WOpnd, LASX256WOpnd>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v8i32 LASX256W:$a), (v8i32 LASX256W:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVPERMIW  (v8i32 LASX256W:$a), (v8i32 LASX256W:$b), uimm8_32:$ui8),
              (XVPERMI_W  LASX256W:$a, LASX256W:$b, uimm8_32:$ui8)>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v8f32 LASX256W:$a), (v8f32 LASX256W:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVPERMIW  (v8f32 LASX256W:$a), (v8f32 LASX256W:$b), uimm8_32:$ui8),
              (!cast<Instruction>(XVPERMI_W)  LASX256W:$a, LASX256W:$b, uimm8_32:$ui8)>;
 
 class LASX_PERM_IMM<string instr_asm,
@@ -5178,10 +5182,10 @@ def : LASXPat<(int_loongarch_lasx_xvshuf4i_h  (v16i16 LASX256HOpnd:$a), uimm8_32
 def : LASXPat<(int_loongarch_lasx_xvshuf4i_w  (v8i32 LASX256WOpnd:$a), uimm8_32:$ui8),
               (XVSHUF4I_W  LASX256WOpnd:$a, uimm8_32:$ui8)>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVSHUF4I  (v4i64 LASX256D:$a), (v4i64 LASX256D:$b), uimm8_32:$ui8),
               (XVSHUF4I_D  LASX256D:$a, LASX256D:$b, uimm8_32:$ui8)>;
 
-def : LASXPat<(LoongArchXVSHFIDPMIWEXT  (v4f64 LASX256D:$a), (v4f64 LASX256D:$b), uimm8_32:$ui8),
+def : LASXPat<(LoongArchXVSHUF4I  (v4f64 LASX256D:$a), (v4f64 LASX256D:$b), uimm8_32:$ui8),
               (!cast<Instruction>(XVSHUF4I_D)  LASX256D:$a, LASX256D:$b, uimm8_32:$ui8)>;
 
 def : LASXPat<(int_loongarch_lasx_xvpermi_d  (v4i64 LASX256D:$a), uimm8_32:$ui8),

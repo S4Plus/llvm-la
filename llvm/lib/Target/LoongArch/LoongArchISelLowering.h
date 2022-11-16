@@ -114,7 +114,9 @@ class TargetRegisterClass;
       VILVL,  // Interleave right elements
       VPICKEV, // Pack even elements
       VPICKOD, // Pack odd elements
-      VSHFID_PMIW_EXT,
+      VSHUF4I,
+      VPERMIW,
+      VEXTRINS,
 
       // Vector Lane Copy
       INSVE, // Copy element from one vector to another
@@ -127,7 +129,9 @@ class TargetRegisterClass;
       XVPICKVE,
       XVPERM,
       XVPERMI,
-      XVSHFID_PMIW_EXT,
+      XVSHUF4I,
+      XVPERMIW,
+      XVEXTRINS,
       XVREPLVEI,
       XVREPLVE0,
       XVREPLVE0Q,

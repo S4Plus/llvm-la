@@ -57,7 +57,9 @@ def LoongArchVILVH  : SDNode<"LoongArchISD::VILVH",  SDT_ILV>;
 def LoongArchVILVL  : SDNode<"LoongArchISD::VILVL",  SDT_ILV>;
 def LoongArchVPICKEV : SDNode<"LoongArchISD::VPICKEV", SDT_ILV>;
 def LoongArchVPICKOD : SDNode<"LoongArchISD::VPICKOD", SDT_ILV>;
-def LoongArchVSHFIDPMIWEXT : SDNode<"LoongArchISD::VSHFID_PMIW_EXT", SDT_VSHFIDPMIWEXT>;
+def LoongArchVSHUF4I : SDNode<"LoongArchISD::VSHUF4I", SDT_VSHFIDPMIWEXT>;
+def LoongArchVPERMIW : SDNode<"LoongArchISD::VPERMIW", SDT_VSHFIDPMIWEXT>;
+def LoongArchVEXTRINS : SDNode<"LoongArchISD::VEXTRINS", SDT_VSHFIDPMIWEXT>;
 def LoongArchVABSD : SDNode<"LoongArchISD::VABSD", SDTVABSD>;
 def LoongArchUVABSD : SDNode<"LoongArchISD::UVABSD", SDTVABSD>;
 
@@ -2909,10 +2911,10 @@ def : LSXPat<(LoongArchSHF (v4f32 LSX128W:$vj), uimm8_32:$ui8),
 def VSHUF4I_D : LSX_I8_U<0b01110011100111>,
                 LSX_I8_SHUF_DESC_BASE_D<"vshuf4i.d", int_loongarch_lsx_vshuf4i_d, LSX128DOpnd>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v2i64 LSX128D:$a), (v2i64 LSX128D:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVSHUF4I  (v2i64 LSX128D:$a), (v2i64 LSX128D:$b), uimm8_32:$ui8),
              (VSHUF4I_D  LSX128D:$a, LSX128D:$b, uimm8_32:$ui8)>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v2f64 LSX128D:$a), (v2f64 LSX128D:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVSHUF4I  (v2f64 LSX128D:$a), (v2f64 LSX128D:$b), uimm8_32:$ui8),
              (!cast<Instruction>(VSHUF4I_D)  LSX128D:$a, LSX128D:$b, uimm8_32:$ui8)>;
 
 def VROTR_B : LSX_3R<0b01110000111011100>,
@@ -4308,22 +4310,22 @@ def VEXTRINS_W : LSX_I8_U<0b01110011100001>,
 def VEXTRINS_D : LSX_I8_U<0b01110011100000>,
                  LSX_2R_3R_U8_DESC_BASE<"vextrins.d", int_loongarch_lsx_vextrins_d, LSX128DOpnd, LSX128DOpnd>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v16i8 LSX128B:$a), (v16i8 LSX128B:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVEXTRINS  (v16i8 LSX128B:$a), (v16i8 LSX128B:$b), uimm8_32:$ui8),
              (VEXTRINS_B  LSX128B:$a, LSX128B:$b, uimm8_32:$ui8)>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v8i16 LSX128H:$a), (v8i16 LSX128H:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVEXTRINS  (v8i16 LSX128H:$a), (v8i16 LSX128H:$b), uimm8_32:$ui8),
              (VEXTRINS_H  LSX128H:$a, LSX128H:$b, uimm8_32:$ui8)>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v4i32 LSX128W:$a), (v4i32 LSX128W:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVEXTRINS  (v4i32 LSX128W:$a), (v4i32 LSX128W:$b), uimm8_32:$ui8),
              (VEXTRINS_W  LSX128W:$a, LSX128W:$b, uimm8_32:$ui8)>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v4f32 LSX128W:$a), (v4f32 LSX128W:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVEXTRINS  (v4f32 LSX128W:$a), (v4f32 LSX128W:$b), uimm8_32:$ui8),
              (!cast<Instruction>(VEXTRINS_W)  LSX128W:$a, LSX128W:$b, uimm8_32:$ui8)>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v2i64 LSX128D:$a), (v2i64 LSX128D:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVEXTRINS  (v2i64 LSX128D:$a), (v2i64 LSX128D:$b), uimm8_32:$ui8),
              (VEXTRINS_D  LSX128D:$a, LSX128D:$b, uimm8_32:$ui8)>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v2f64 LSX128D:$a), (v2f64 LSX128D:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVEXTRINS  (v2f64 LSX128D:$a), (v2f64 LSX128D:$b), uimm8_32:$ui8),
              (!cast<Instruction>(VEXTRINS_D)  LSX128D:$a, LSX128D:$b, uimm8_32:$ui8)>;
 
 
@@ -4365,10 +4367,10 @@ def VLDI_D : LSX_1R_I13_I10<0b01110011111000011>,
 def VPERMI_W : LSX_I8_U<0b01110011111001>,
                LSX_2R_3R_U8_DESC_BASE<"vpermi.w", int_loongarch_lsx_vpermi_w, LSX128WOpnd, LSX128WOpnd>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v4i32 LSX128W:$a), (v4i32 LSX128W:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVPERMIW  (v4i32 LSX128W:$a), (v4i32 LSX128W:$b), uimm8_32:$ui8),
              (VPERMI_W  LSX128W:$a, LSX128W:$b, uimm8_32:$ui8)>;
 
-def : LSXPat<(LoongArchVSHFIDPMIWEXT  (v4f32 LSX128W:$a), (v4f32 LSX128W:$b), uimm8_32:$ui8),
+def : LSXPat<(LoongArchVPERMIW  (v4f32 LSX128W:$a), (v4f32 LSX128W:$b), uimm8_32:$ui8),
              (!cast<Instruction>(VPERMI_W)  LSX128W:$a, LSX128W:$b, uimm8_32:$ui8)>;
 
 

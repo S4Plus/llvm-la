@@ -175,7 +175,9 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::VILVL:             return "LoongArchISD::VILVL";
   case LoongArchISD::VPICKEV:           return "LoongArchISD::VPICKEV";
   case LoongArchISD::VPICKOD:           return "LoongArchISD::VPICKOD";
-  case LoongArchISD::VSHFID_PMIW_EXT:   return "LoongArchISD::VSHFID_PMIW_EXT";
+  case LoongArchISD::VSHUF4I:           return "LoongArchISD::VSHUF4I";
+  case LoongArchISD::VPERMIW:           return "LoongArchISD::VPERMIW";
+  case LoongArchISD::VEXTRINS:          return "LoongArchISD::VEXTRINS";
   case LoongArchISD::INSVE:             return "LoongArchISD::INSVE";
   case LoongArchISD::VROR:              return "LoongArchISD::VROR";
   case LoongArchISD::VRORI:             return "LoongArchISD::VRORI";
@@ -185,7 +187,9 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::UVABSD:            return "LoongArchISD::UVABSD";
   case LoongArchISD::XVPICKVE:          return "LoongArchISD::XVPICKVE";
   case LoongArchISD::XVPERMI:           return "LoongArchISD::XVPERMI";
-  case LoongArchISD::XVSHFID_PMIW_EXT:  return "LoongArchISD::XVSHFID_PMIW_EXT";
+  case LoongArchISD::XVSHUF4I:          return "LoongArchISD::XVSHUF4I";
+  case LoongArchISD::XVPERMIW:          return "LoongArchISD::XVPERMIW";
+  case LoongArchISD::XVEXTRINS:         return "LoongArchISD::XVEXTRINS";
   case LoongArchISD::XVREPLVEI:         return "LoongArchISD::XVREPLVEI";
   case LoongArchISD::XVREPLVE0:         return "LoongArchISD::XVREPLVE0";
   case LoongArchISD::XVREPLVE0Q:        return "LoongArchISD::XVREPLVE0Q";
@@ -2426,7 +2430,7 @@ static SDValue lowerVECTOR_SHUFFLE_SHFD(SDValue Op, EVT ResTy,
 
   int SHFDMask = Indices[1] * 4 + Indices[0];
 
-  return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op1, Op2,
+  return DAG.getNode(LoongArchISD::VSHUF4I, DL, ResTy, Op1, Op2,
                      DAG.getConstant(SHFDMask, DL, MVT::i32));
 }
 
@@ -2457,7 +2461,7 @@ static SDValue lowerVECTOR_SHUFFLE_PERMIW(SDValue Op, EVT ResTy,
   if (CheckLH) {
     PERMIWMask = (Indices[3] % Size) * 64 + (Indices[2] % Size) * 16
                      + Indices[1] * 4 + Indices[0];
-    return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op1, Op2,
+    return DAG.getNode(LoongArchISD::VPERMIW, DL, ResTy, Op1, Op2,
                        DAG.getConstant(PERMIWMask, DL, MVT::i32));
   }
 
@@ -2474,7 +2478,7 @@ static SDValue lowerVECTOR_SHUFFLE_PERMIW(SDValue Op, EVT ResTy,
   if (CheckHL) {
     PERMIWMask = (Indices[1] % Size) * 64 + (Indices[0] % Size) * 16
                      + Indices[3] * 4 + Indices[2];
-    return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op2, Op1,
+    return DAG.getNode(LoongArchISD::VPERMIW, DL, ResTy, Op2, Op1,
                        DAG.getConstant(PERMIWMask, DL, MVT::i32));
   }
 
@@ -2513,7 +2517,7 @@ static SDValue lowerVECTOR_SHUFFLE_EXTRINS(SDValue Op, EVT ResTy,
       }
     }
     int EXTMask = (EXTToMask * 16) + EXTFromMask;
-    return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op0, Op1,
+    return DAG.getNode(LoongArchISD::VEXTRINS, DL, ResTy, Op0, Op1,
                        DAG.getConstant(EXTMask, DL, MVT::i32));
   }
   else if (Using2ndVec == Size - 1 && Using1stVec == 1) {
@@ -2525,7 +2529,7 @@ static SDValue lowerVECTOR_SHUFFLE_EXTRINS(SDValue Op, EVT ResTy,
       }
     }
     int EXTMask = (EXTToMask * 16) + EXTFromMask;
-    return DAG.getNode(LoongArchISD::VSHFID_PMIW_EXT, DL, ResTy, Op1, Op0,
+    return DAG.getNode(LoongArchISD::VEXTRINS, DL, ResTy, Op1, Op0,
                        DAG.getConstant(EXTMask, DL, MVT::i32));
   }
 
@@ -3299,7 +3303,7 @@ static SDValue lowerVECTOR_SHUFFLE_XSHFD(SDValue Op, EVT ResTy,
 
   int XSHFDMask = (Indices[1] % Size) * 4 + (Indices[0] % Size);
 
-  return DAG.getNode(LoongArchISD::XVSHFID_PMIW_EXT, DL, ResTy, Op1, Op2,
+  return DAG.getNode(LoongArchISD::XVSHUF4I, DL, ResTy, Op1, Op2,
                      DAG.getConstant(XSHFDMask, DL, MVT::i32));
 }
 
@@ -3332,7 +3336,7 @@ static SDValue lowerVECTOR_SHUFFLE_XVPERMIW(SDValue Op, EVT ResTy,
     }
     int PERMIWMask = (Indices[3] % Size) * 64 + (Indices[2] % Size) * 16
                      + Indices[1] * 4 + Indices[0];
-    return DAG.getNode(LoongArchISD::XVSHFID_PMIW_EXT, DL, ResTy, Op1, Op2,
+    return DAG.getNode(LoongArchISD::XVPERMIW, DL, ResTy, Op1, Op2,
                        DAG.getConstant(PERMIWMask, DL, MVT::i32));
   }
 
@@ -3343,7 +3347,7 @@ static SDValue lowerVECTOR_SHUFFLE_XVPERMIW(SDValue Op, EVT ResTy,
     }
     int PERMIWMask = (Indices[1] % Size) * 64 + (Indices[0] % Size) * 16
                      + Indices[3] * 4 + Indices[2];
-    return DAG.getNode(LoongArchISD::XVSHFID_PMIW_EXT, DL, ResTy, Op2, Op1,
+    return DAG.getNode(LoongArchISD::XVPERMIW, DL, ResTy, Op2, Op1,
                        DAG.getConstant(PERMIWMask, DL, MVT::i32));
   }
 
@@ -3385,7 +3389,7 @@ static SDValue lowerVECTOR_SHUFFLE_XEXTRINS(SDValue Op, EVT ResTy,
       }
     }
     int EXTMask = (EXTToMask * 16) + EXTFromMask;
-    return DAG.getNode(LoongArchISD::XVSHFID_PMIW_EXT, DL, ResTy, Op0, Op1,
+    return DAG.getNode(LoongArchISD::XVEXTRINS, DL, ResTy, Op0, Op1,
                        DAG.getConstant(EXTMask, DL, MVT::i32));
   }
   else if (Using2ndVec == Size - 2 && Using1stVec == 2) {
@@ -3399,7 +3403,7 @@ static SDValue lowerVECTOR_SHUFFLE_XEXTRINS(SDValue Op, EVT ResTy,
       }
     }
     int EXTMask = (EXTToMask * 16) + EXTFromMask;
-    return DAG.getNode(LoongArchISD::XVSHFID_PMIW_EXT, DL, ResTy, Op1, Op0,
+    return DAG.getNode(LoongArchISD::XVEXTRINS, DL, ResTy, Op1, Op0,
                        DAG.getConstant(EXTMask, DL, MVT::i32));
   }
 
@@ -5945,7 +5949,7 @@ static SDValue lowerVECTOR_SHUFFLE_XVSHUF(const SDLoc &DL, MVT VT, EVT ResTy,
     if (!CheckV)
       return SDValue();
     else {
-      SDValue Res = DAG.getNode(LoongArchISD::XVSHFID_PMIW_EXT, DL, ResTy, Op1, Op2,
+      SDValue Res = DAG.getNode(LoongArchISD::XVSHUF4I, DL, ResTy, Op1, Op2,
                                 DAG.getConstant(8, DL, MVT::i32));
       return DAG.getNode(LoongArchISD::XVPERMI, DL, ResTy, Res,
                          DAG.getConstant(0xD8, DL, MVT::i32));
