@@ -3119,6 +3119,7 @@ static SDValue lowerVECTOR_SHUFFLE_XVREPLVE0(SDValue Op, EVT ResTy,
   unsigned Size = Indices.size();
   unsigned HalfSize = Indices.size() / 2;
   SDLoc DL(Op);
+  MVT VT = Op.getSimpleValueType();
 
   SDValue Op0;
   int mask = -1;
@@ -3143,6 +3144,11 @@ static SDValue lowerVECTOR_SHUFFLE_XVREPLVE0(SDValue Op, EVT ResTy,
     }
   }
   for (int i = 0; i < HalfSize; ++i) {
+    // xvreplve0.q instruction only supports for v32i8 type.
+    if (VT != MVT::v32i8) {
+      Isq = false;
+      break;
+    }
     int Idx = Indices[i];
     if (Idx != Indices[i + HalfSize] || Idx != mask + i){
       Isq = false;
