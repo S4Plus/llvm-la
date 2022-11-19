@@ -42,6 +42,10 @@ def SDT_XVREPLVEI : SDTypeProfile<1, 2, [SDTCisVec<0>,
                                          SDTCisInt<1>, SDTCisVec<1>,
                                          SDTCisSameAs<0, 2>]>;
 
+def SDT_XVSHUF : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisVec<1>,
+                                      SDTCisSameAs<0, 2>, SDTCisSameAs<0, 1>,
+                                      SDTCisSameAs<2, 3>]>;
+
 def LoongArchXVSHUFI : SDNode<"LoongArchISD::XVSHFI", SDT_XVSHFI>;
 
 def LoongArchXVSELI  : SDNode<"LoongArchISD::XVSELI", SDT_XVSHFI>;
@@ -51,6 +55,8 @@ def LoongArchXVPERMI  : SDNode<"LoongArchISD::XVPERMI", SDT_SHUFF_2OP_IMM>;
 def LoongArchXVPERM : SDNode<"LoongArchISD::XVPERM", SDT_SHUFF_3OP>;
 
 def LoongArchXSHF : SDNode<"LoongArchISD::SHF", SDT_SHUFF_2OP_IMM>;
+
+def LoongArchXVSHUF : SDNode<"LoongArchISD::XVSHF", SDT_XVSHUF>;
 
 def LoongArchXVBROADCAST : SDNode<"LoongArchISD::XVBROADCAST", SDT_XVBROADCAST>;
 
@@ -261,6 +267,15 @@ class LASX_4RF<string instr_asm,
   list<dag> Pattern = [(set ROXD:$xd, (OpNode ROXJ:$xj, ROXK:$xk, ROXA:$xa))];
 }
 
+class LASX_XVSHF_4RF<string instr_asm,
+                             RegisterOperand ROXJ, RegisterOperand ROXA = ROXJ,
+                             RegisterOperand ROXK = ROXA, RegisterOperand ROXD = ROXK> {
+  dag OutOperandList = (outs ROXD:$xd);
+  dag InOperandList = (ins ROXJ:$xj, ROXK:$xk, ROXA:$xa);
+  string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $xk, $xa");
+  list<dag> Pattern = [(set ROXD:$xd, (LoongArchXVSHUF ROXA:$xa, ROXJ:$xj, ROXK:$xk))];
+}
+
 class LASX_3RF<string instr_asm,
                        SDPatternOperator OpNode,
                        RegisterOperand ROXJ,
@@ -463,14 +478,16 @@ class LASX_3RF_DESC_BASE1<string instr_asm,
 
 
 
-class LASX_3R_VSHF_DESC_BASE<string instr_asm, RegisterOperand ROXD,
+class LASX_3R_VSHF_DESC_BASE<string instr_asm, 
+                            SDPatternOperator OpNode, ValueType OpVT,
+                            RegisterOperand ROXD,
                             RegisterOperand ROXJ = ROXD,
                             RegisterOperand ROXK = ROXD> {
   dag OutOperandList = (outs ROXD:$xd);
   dag InOperandList = (ins ROXD:$xd_in, ROXJ:$xj, ROXK:$xk);
   string AsmString = !strconcat(instr_asm, "\t$xd, $xj, $xk");
-  list<dag> Pattern = [(set ROXD:$xd, (LoongArchVSHF ROXD:$xd_in, ROXJ:$xj,
-                                       ROXK:$xk))];
+  list<dag> Pattern = [(set ROXD:$xd, (OpVT (OpNode ROXD:$xd_in, ROXJ:$xj,
+                                       ROXK:$xk)))];
   string Constraints = "$xd = $xd_in";
 }
 
@@ -1427,8 +1444,10 @@ def XBSEL_FD_PSEUDO : LASX_BSEL_PSEUDO_BASE<LASX256DOpnd, v4f64>;
 
 
 def XVSHUF_B : LASX_4R<0b000011010110>,
-               LASX_4RF<"xvshuf.b", int_loongarch_lasx_xvshuf_b, LASX256BOpnd>;
+               LASX_XVSHF_4RF<"xvshuf.b", LASX256BOpnd>;
 
+def : LASXPat<(int_loongarch_lasx_xvshuf_b (v32i8 LASX256B:$xj), (v32i8 LASX256B:$xk), (v32i8 LASX256B:$xa)),
+             (XVSHUF_B LASX256B:$xj, LASX256B:$xk, LASX256B:$xa)>;
 
 def XVLD : LASX_I12_S<0b0010110010>,
            LASX_LD<"xvld", load, v32i8, LASX256BOpnd, mem>;
@@ -2819,13 +2838,20 @@ def XVFTINTRNE_W_D : LASX_3R<0b01110101010010111>,
 
 
 def XVSHUF_H : LASX_3R<0b01110101011110101>,
-               LASX_3R_VSHF_DESC_BASE<"xvshuf.h", LASX256HOpnd>;
+               LASX_3R_VSHF_DESC_BASE<"xvshuf.h", LoongArchXVSHUF, v16i16, LASX256HOpnd>;
 
 def XVSHUF_W : LASX_3R<0b01110101011110110>,
-               LASX_3R_VSHF_DESC_BASE<"xvshuf.w", LASX256WOpnd>;
+               LASX_3R_VSHF_DESC_BASE<"xvshuf.w", LoongArchXVSHUF, v8i32, LASX256WOpnd>;
 
 def XVSHUF_D : LASX_3R<0b01110101011110111>,
-               LASX_3R_VSHF_DESC_BASE<"xvshuf.d", LASX256DOpnd>;
+               LASX_3R_VSHF_DESC_BASE<"xvshuf.d", LoongArchXVSHUF, v4i64, LASX256DOpnd>;
+
+def : LASXPat<(LoongArchXVSHUF (v8f32 LASX256W:$xj), (v8f32 LASX256W:$xk), (v8f32 LASX256W:$xd)),
+              (!cast<Instruction>(XVSHUF_W) LASX256W:$xj, LASX256W:$xk, LASX256W:$xd)>;
+
+def : LASXPat<(LoongArchXVSHUF (v4f64 LASX256D:$xj), (v4f64 LASX256D:$xk), (v4f64 LASX256D:$xd)),
+              (!cast<Instruction>(XVSHUF_D) LASX256D:$xj, LASX256D:$xk, LASX256D:$xd)>;
+
 
 def XVPERM_W : LASX_3R<0b01110101011111010>,
                LASX_PERM<"xvperm.w", LoongArchXVPERM, v8i32, LASX256WOpnd>;

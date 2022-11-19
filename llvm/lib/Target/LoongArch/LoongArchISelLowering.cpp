@@ -185,6 +185,7 @@ const char *LoongArchTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LoongArchISD::VBROADCAST:        return "LoongArchISD::VBROADCAST";
   case LoongArchISD::VABSD:             return "LoongArchISD::VABSD";
   case LoongArchISD::UVABSD:            return "LoongArchISD::UVABSD";
+  case LoongArchISD::XVSHF:             return "LoongArchISD::XVSHF";
   case LoongArchISD::XVPICKVE:          return "LoongArchISD::XVPICKVE";
   case LoongArchISD::XVPERMI:           return "LoongArchISD::XVPERMI";
   case LoongArchISD::XVSHUF4I:          return "LoongArchISD::XVSHUF4I";
@@ -5990,6 +5991,38 @@ static SDValue lowerVECTOR_SHUFFLE_XVSHUF(const SDLoc &DL, MVT VT, EVT ResTy,
     return SDValue();
 }
 
+static SDValue lowerVECTOR_SHUFFLE_XVSHF(SDValue Op, EVT ResTy,
+                                         SmallVector<int, 32> Indices,
+                                         SelectionDAG &DAG) {
+  SDValue Op0 = Op->getOperand(0);
+  SDValue Op1 = Op->getOperand(1);
+  SDLoc DL(Op);
+  EVT MaskVecTy = ResTy.changeVectorElementTypeToInteger();
+  EVT MaskEltTy = MaskVecTy.getVectorElementType();
+  unsigned Size = Indices.size();
+  unsigned HalfSize = Indices.size() / 2;
+
+  for (int i = 0; i < HalfSize; ++i) {
+    int Idxl = Indices[i];
+    int Idxh = Indices[i + HalfSize];
+    if (Idxl < 0 || Idxl >= Size * 2 || Idxh < 0 || Idxh >= Size * 2)
+      return SDValue();
+    if ((Idxl >= HalfSize && Idxl < Size) || (Idxl >= Size + HalfSize))
+      return SDValue();
+    if ((Idxh < HalfSize) || (Idxh >= Size && Idxh < Size + HalfSize))
+      return SDValue();
+  }
+
+  SmallVector<SDValue, 32> Ops;
+  for (SmallVector<int, 32>::iterator I = Indices.begin(); I != Indices.end();
+       ++I)
+    Ops.push_back(DAG.getTargetConstant(*I, DL, MaskEltTy));
+
+  SDValue MaskVec = DAG.getBuildVector(MaskVecTy, DL, Ops);
+
+  return DAG.getNode(LoongArchISD::XVSHF, DL, ResTy, MaskVec, Op1, Op0);
+}
+
 /// Get a 4-lane 8-bit shuffle immediate for a mask.
 ///
 /// This helper function produces an 8-bit shuffle immediate corresponding to
@@ -6499,6 +6532,8 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
       return Result;
     if ((Result =
              lowerVECTOR_SHUFFLE_XVSHUF(DL, VT, ResTy, Op1, Op2, Mask, DAG)))
+      return Result;
+    if ((Result = lowerVECTOR_SHUFFLE_XVSHF(Op, ResTy, Indices, DAG)))
       return Result;
   }
   if (VT.is256BitVector()){
