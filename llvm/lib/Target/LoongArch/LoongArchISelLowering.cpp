@@ -6014,9 +6014,14 @@ static SDValue lowerVECTOR_SHUFFLE_XVSHF(SDValue Op, EVT ResTy,
   }
 
   SmallVector<SDValue, 32> Ops;
-  for (SmallVector<int, 32>::iterator I = Indices.begin(); I != Indices.end();
-       ++I)
-    Ops.push_back(DAG.getTargetConstant(*I, DL, MaskEltTy));
+  for (SmallVector<int, 32>::iterator I = Indices.begin(); I != Indices.end(); ++I) {
+    if ((*I >= Size && *I < Size + HalfSize) || (*I >= HalfSize && *I < Size))
+      Ops.push_back(DAG.getTargetConstant(*I - HalfSize, DL, MaskEltTy));
+    else if (*I >= Size + HalfSize && *I < Size * 2)
+      Ops.push_back(DAG.getTargetConstant(*I - Size, DL, MaskEltTy));
+    else
+      Ops.push_back(DAG.getTargetConstant(*I, DL, MaskEltTy));
+  }
 
   SDValue MaskVec = DAG.getBuildVector(MaskVecTy, DL, Ops);
 
