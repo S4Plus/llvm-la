@@ -35,6 +35,8 @@ def SDT_ILV : SDTypeProfile<1, 2, [SDTCisVec<0>,
 def SDT_VSHFIDPMIWEXT : SDTypeProfile<1, 3, [SDTCisVec<0>,
                                        SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>,
                                        SDTCisVT<3, i32>]>;
+def SDT_VBSHIFT : SDTypeProfile<1, 2, [SDTCisVec<0>, SDTCisSameAs<0,1>,
+                                       SDTCisVT<2, i32>, SDTCisInt<0>]>;
 def SDTVABSD : SDTypeProfile<1, 3, [SDTCisVec<0>, SDTCisSameAs<0, 1>,
                                     SDTCisSameAs<0, 2>, SDTCisVT<3, i32>]>;
 
@@ -60,6 +62,8 @@ def LoongArchVPICKOD : SDNode<"LoongArchISD::VPICKOD", SDT_ILV>;
 def LoongArchVSHUF4I : SDNode<"LoongArchISD::VSHUF4I", SDT_VSHFIDPMIWEXT>;
 def LoongArchVPERMIW : SDNode<"LoongArchISD::VPERMIW", SDT_VSHFIDPMIWEXT>;
 def LoongArchVEXTRINS : SDNode<"LoongArchISD::VEXTRINS", SDT_VSHFIDPMIWEXT>;
+def LoongArchVBSRL : SDNode<"LoongArchISD::VBSRL", SDT_VBSHIFT>;
+def LoongArchVBSLL : SDNode<"LoongArchISD::VBSLL", SDT_VBSHIFT>;
 def LoongArchVABSD : SDNode<"LoongArchISD::VABSD", SDTVABSD>;
 def LoongArchUVABSD : SDNode<"LoongArchISD::UVABSD", SDTVABSD>;
 
@@ -4052,6 +4056,12 @@ def VBSRL_V : LSX_I5_U<0b01110010100011101>,
 
 def VBSLL_V : LSX_I5_U<0b01110010100011100>,
               LSX_U5_DESC_BASE<"vbsll.v", int_loongarch_lsx_vbsll_v, LSX128BOpnd>;
+
+def : LSXPat<(LoongArchVBSRL  (v16i8 LSX128B:$vj), uimm5:$ui5),
+             (VBSRL_V  LSX128B:$vj, uimm5:$ui5)>;
+
+def : LSXPat<(LoongArchVBSLL  (v16i8 LSX128B:$vj), uimm5:$ui5),
+             (VBSLL_V  LSX128B:$vj, uimm5:$ui5)>;
 
 
 def VFRSTPI_B : LSX_I5_U<0b01110010100110100>,

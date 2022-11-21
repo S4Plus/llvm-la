@@ -117,6 +117,8 @@ class TargetRegisterClass;
       VSHUF4I,
       VPERMIW,
       VEXTRINS,
+      VBSRL,
+      VBSLL,
 
       // Vector Lane Copy
       INSVE, // Copy element from one vector to another
