@@ -2956,6 +2956,12 @@ def XVBSLL_V : LASX_I5_U<0b01110110100011100>,
 def XVBSRL_V : LASX_I5_U<0b01110110100011101>,
                LASX_U5_DESC_BASE<"xvbsrl.v", int_loongarch_lasx_xvbsrl_v, LASX256BOpnd>;
 
+def : LASXPat<(LoongArchVBSLL  (v32i8 LASX256B:$xj), uimm5:$ui5),
+              (XVBSLL_V  LASX256B:$xj, uimm5:$ui5)>;
+
+def : LASXPat<(LoongArchVBSRL  (v32i8 LASX256B:$xj), uimm5:$ui5),
+              (XVBSRL_V  LASX256B:$xj, uimm5:$ui5)>;
+
 
 def XVMAXI_B : LASX_I5<0b01110110100100000>,
                LASX_I5_DESC_BASE_Intrinsic<"xvmaxi.b", int_loongarch_lasx_xvmaxi_b, simm5_32, immSExt5, LASX256BOpnd>;

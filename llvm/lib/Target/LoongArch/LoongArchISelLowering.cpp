@@ -2639,7 +2639,7 @@ static SDValue lowerVECTOR_SHUFFLE_VBSHIFT(SDValue Op, EVT ResTy,
       return DAG.getNode(LoongArchISD::VBSLL, DL, MVT::v16i8, Op1,
                          DAG.getConstant(SLLMask, DL, MVT::i32));
     }
-    else if (Indices[0] >= Size && Indices[0] < Size * 2) { // vbsrl
+    else if (Indices[0] > Size && Indices[0] < Size * 2) { // vbsrl
       int i = 0;
       for (i = 0; i < Size; ++i) {
         int Idx = Indices[i];
@@ -3557,6 +3557,138 @@ static SDValue lowerVECTOR_SHUFFLE_XEXTRINS(SDValue Op, EVT ResTy,
     int EXTMask = (EXTToMask * 16) + EXTFromMask;
     return DAG.getNode(LoongArchISD::XVEXTRINS, DL, ResTy, Op1, Op0,
                        DAG.getConstant(EXTMask, DL, MVT::i32));
+  }
+
+  return SDValue();
+}
+
+static SDValue lowerVECTOR_SHUFFLE_XVBSHIFT(SDValue Op, EVT ResTy,
+                                         SmallVector<int, 32> Indices,
+                                         SelectionDAG &DAG) {
+  assert((Indices.size() % 2) == 0);
+  SDLoc DL(Op);
+  MVT VT = Op.getSimpleValueType();
+
+  if (VT != MVT:: v32i8)
+    return SDValue();
+
+  SDValue Op0 = Op.getOperand(0);
+  SDValue Op1 = Op.getOperand(1);
+  bool Using1stVec = false;
+  bool Using2ndVec = false;
+  if (!(ISD::isBuildVectorAllZeros(Op0.getNode()))
+        && ISD::isBuildVectorAllZeros(Op1.getNode()))
+    Using1stVec = true;
+  else if (ISD::isBuildVectorAllZeros(Op0.getNode())
+            && !(ISD::isBuildVectorAllZeros(Op1.getNode())))
+    Using2ndVec = true;
+  else
+    return SDValue();
+
+  unsigned Size = Indices.size();
+  unsigned HalfSize = Indices.size() / 2;
+  if (Using1stVec) {
+    if (Indices[0] >= Size && Indices[0] < Size * 2) {  // xvbsll
+      int i = 0;
+      for (i = 0; i < HalfSize; ++i) {
+        int Idxl = Indices[i];
+        int Idxh = Indices[i + HalfSize];
+        if (Idxl < 0 || Idxl >= Size * 2 || 
+              Idxh < 0 || Idxh >= Size * 2)
+          return SDValue();
+        if (Idxl == 0 && Idxh == HalfSize)
+          break;
+        if (Idxl < Size || Idxh < Size)
+          return SDValue();
+      }
+      for (int j = i + 1; j < HalfSize; ++j) {
+        int Idxl = Indices[j];
+        int Idxh = Indices[j + HalfSize];
+        if (Idxl < 0 || Idxl >= Size || Idxh < 0 || Idxh >= Size)
+          return SDValue();
+        if (Idxl != j - i || Idxh != j - i + HalfSize)
+          return SDValue();
+      }
+      int SLLMask = i;
+      return DAG.getNode(LoongArchISD::VBSLL, DL, MVT::v32i8, Op0,
+                         DAG.getConstant(SLLMask, DL, MVT::i32));
+    }
+    else if (Indices[0] > 0 && Indices[0] < Size) { // xvbsrl
+      int i = 0;
+      for (i = 0; i < HalfSize; ++i) {
+        int Idxl = Indices[i];
+        int Idxh = Indices[i + HalfSize];
+        if (Idxl < 0 || Idxl >= Size * 2 || 
+              Idxh < 0 || Idxh >= Size * 2)
+          return SDValue();
+        if (Idxl >= Size && Idxh >= Size)
+          break;
+        if (Idxl != Indices[0] + i || Idxh != Indices[0] + i + HalfSize)
+          return SDValue();
+      }
+      for (int j = i + 1; j < HalfSize; ++j) {
+        int Idxl = Indices[j];
+        int Idxh = Indices[j + HalfSize];
+        if (Idxl < Size || Idxl >= Size * 2 ||
+              Idxh < Size || Idxh >= Size * 2)
+          return SDValue();
+      }
+      int SRLMask = Indices[0];
+      return DAG.getNode(LoongArchISD::VBSRL, DL, MVT::v32i8, Op0,
+                         DAG.getConstant(SRLMask, DL, MVT::i32));
+    }
+  }
+
+  if (Using2ndVec) {
+    if (Indices[0] >= 0 && Indices[0] < Size) { // xvbsll
+      int i = 0;
+      for (i = 0; i < HalfSize; ++i) {
+        int Idxl = Indices[i];
+        int Idxh = Indices[i + HalfSize];
+        if (Idxl < 0 || Idxl >= Size * 2 || 
+              Idxh < 0 || Idxh >= Size * 2)
+          return SDValue();
+        if (Idxl == Size && Idxh == Size + HalfSize)
+          break;
+        if (Idxl >= Size || Idxh >= Size)
+          return SDValue();
+      }
+      for (int j = i + 1; j < HalfSize; ++j) {
+        int Idxl = Indices[j];
+        int Idxh = Indices[j + HalfSize];
+        if (Idxl < Size || Idxl >= Size * 2 ||
+              Idxh < Size || Idxh >= Size * 2)
+          return SDValue();
+        if (Idxl != Size + j - i || Idxh != Size + HalfSize + j - i)
+          return SDValue();
+      }
+      int SLLMask = i;
+      return DAG.getNode(LoongArchISD::VBSLL, DL, MVT::v32i8, Op1,
+                         DAG.getConstant(SLLMask, DL, MVT::i32));
+    }
+    else if (Indices[0] > Size && Indices[0] < Size * 2) { // xvbsrl
+      int i = 0;
+      for (i = 0; i < HalfSize; ++i) {
+        int Idxl = Indices[i];
+        int Idxh = Indices[i + HalfSize];
+        if (Idxl < 0 || Idxl >= Size * 2 || 
+              Idxh < 0 || Idxh >= Size * 2)
+          return SDValue();
+        if (Idxl < Size && Idxh < Size)
+          break;
+        if (Idxl != Indices[0] + i || Idxh != Indices[HalfSize] + i)
+          return SDValue();
+      }
+      for (int j = i + 1; j < HalfSize; ++j) {
+        int Idxl = Indices[j];
+        int Idxh = Indices[j + HalfSize];
+        if (Idxl < 0 || Idxl >= Size || Idxh < 0 || Idxh >= Size)
+          return SDValue();
+      }
+      int SRLMask = Indices[0] - Size;
+      return DAG.getNode(LoongArchISD::VBSRL, DL, MVT::v32i8, Op1,
+                         DAG.getConstant(SRLMask, DL, MVT::i32));
+    }
   }
 
   return SDValue();
@@ -6649,6 +6781,8 @@ SDValue LoongArchTargetLowering::lowerVECTOR_SHUFFLE(SDValue Op,
     if ((Result = lowerVECTOR_SHUFFLE_XVPERMIW(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result = lowerVECTOR_SHUFFLE_XEXTRINS(Op, ResTy, Indices, DAG)))
+      return Result;
+    if ((Result = lowerVECTOR_SHUFFLE_XVBSHIFT(Op, ResTy, Indices, DAG)))
       return Result;
     if ((Result =
              lowerVECTOR_SHUFFLE_INSVE(DL, VT, ResTy, Op1, Op2, Mask, DAG)))
