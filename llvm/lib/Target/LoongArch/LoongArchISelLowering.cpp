@@ -6427,30 +6427,122 @@ static SDValue lowerVectorShuffleAsDecomposedShuffleBlend(
     const LoongArchSubtarget &Subtarget, SelectionDAG &DAG) {
   // Shuffle the input elements into the desired positions in V1 and V2 and
   // blend them together.
-  SmallVector<unsigned int, 32> SelectMask_w(Mask.size(), -1);
-  SmallVector<unsigned long, 32> SelectMask_d(Mask.size(), -1);
-  SmallVector<int, 8> PermMask(Mask.size(), -1);
-  for (int i = 0, Size = Mask.size(); i < Size; ++i)
-    if (Mask[i] >= 0 && Mask[i] < Size) {
-      SelectMask_w[i] = 0;
-      SelectMask_d[i] = 0;
-      PermMask[i] = Mask[i];
-    } else if (Mask[i] >= Size) {
-      SelectMask_w[i] = 0xFFFFFFFF;
-      SelectMask_d[i] = 0xFFFFFFFFFFFFFFFF;
-      PermMask[i] = Mask[i] - Size;
+  if (VT == MVT::v4i64 || VT == MVT::v4f64 || VT == MVT::v8i32 || VT == MVT::v8f32) {
+    SmallVector<unsigned int, 32> SelectMask_w(Mask.size(), -1);
+    SmallVector<unsigned long, 32> SelectMask_d(Mask.size(), -1);
+    SmallVector<int, 8> PermMask(Mask.size(), -1);
+    for (int i = 0, Size = Mask.size(); i < Size; ++i)
+      if (Mask[i] >= 0 && Mask[i] < Size) {
+        SelectMask_w[i] = 0;
+        SelectMask_d[i] = 0;
+        PermMask[i] = Mask[i];
+      } else if (Mask[i] >= Size) {
+        SelectMask_w[i] = 0xFFFFFFFF;
+        SelectMask_d[i] = 0xFFFFFFFFFFFFFFFF;
+        PermMask[i] = Mask[i] - Size;
+      }
+
+    V1 = DAG.getVectorShuffle(VT, DL, V1, V1, PermMask);
+    V2 = DAG.getVectorShuffle(VT, DL, V2, V2, PermMask);
+
+    SDValue XVBITSELMask;
+    if (VT == MVT::v8i32 || VT == MVT::v8f32)
+      XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned int>(SelectMask_w, 
+                                                      MVT::v8i32, DAG, DL, true);
+    else if (VT == MVT::v4i64 || VT == MVT::v4f64)
+      XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned long>(SelectMask_d, 
+                                                      MVT::v4i64, DAG, DL, true);
+
+    return DAG.getNode(ISD::VSELECT, DL, VT, XVBITSELMask, V2, V1);
+  }
+  else if (VT == MVT::v16i16 || VT == MVT::v32i8) {
+    SDValue V3 = SDValue(DAG.getMachineNode(LoongArch::XVPERMI_Q, DL, VT, V1, V1,
+                              DAG.getTargetConstant(1, DL, MVT::i32)), 0);
+    SDValue V4 = SDValue(DAG.getMachineNode(LoongArch::XVPERMI_Q, DL, VT, V2, V2,
+                              DAG.getTargetConstant(1, DL, MVT::i32)), 0);
+
+    SmallVector<int, 32> ShufMask(Mask.size(), -1);
+    int Size = Mask.size();
+    int HalfSize = Mask.size() / 2;
+    for (int i = 0; i < Size; ++i) {
+      if (Mask[i] < 0 || Mask[i] >= Size * 2)
+        return SDValue();
+      if (Mask[i] >= Size)
+        ShufMask[i] = Mask[i] - Size;
+      else
+        ShufMask[i] = Mask[i];
+    }
+    for (int i = 0; i < HalfSize; ++i) {
+      if (ShufMask[i] >= HalfSize && ShufMask[i] < Size)
+        ShufMask[i] += HalfSize;
+    }
+    for (int i = HalfSize; i < Size; ++i) {
+      if (ShufMask[i] < HalfSize)
+        ShufMask[i] += Size + HalfSize;
     }
 
-  V1 = DAG.getVectorShuffle(VT, DL, V1, V1, PermMask);
-  V2 = DAG.getVectorShuffle(VT, DL, V2, V2, PermMask);
+    V1 = DAG.getVectorShuffle(VT, DL, V1, V3, ShufMask);
+    V2 = DAG.getVectorShuffle(VT, DL, V2, V4, ShufMask);
 
-  SDValue XVBITSELMask;
-  if (VT == MVT::v8i32 || VT == MVT::v8f32)
-    XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned int>(SelectMask_w, MVT::v8i32, DAG, DL, true);
-  else if (VT == MVT::v4i64 || VT == MVT::v4f64)
-    XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned long>(SelectMask_d, MVT::v4i64, DAG, DL, true);
+    if (VT == MVT::v16i16) {
+      SmallVector<unsigned int, 32> SelectMask_h(Mask.size() / 2, -1);
+      for (int i = 0, j = 0; i < Size; i += 2) {
+        if (Mask[i] < Size && Mask[i + 1] < Size)
+          SelectMask_h[j++] = 0;
+        else if (Mask[i] >= Size && Mask[i + 1] >= Size)
+          SelectMask_h[j++] = 0xFFFFFFFF;
+        else if (Mask[i] >= Size && Mask[i + 1] < Size)
+          SelectMask_h[j++] = 0xFFFF0000;
+        else if (Mask[i] < Size && Mask[i + 1] >= Size)
+          SelectMask_h[j++] = 0x0000FFFF;
+      }
 
-  return DAG.getNode(ISD::VSELECT, DL, VT, XVBITSELMask, V2, V1);  
+      SDValue XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned int>(
+                                            SelectMask_h, MVT::v8i32, DAG, DL, true);
+
+      return DAG.getNode(ISD::VSELECT, DL, MVT::v8i32, XVBITSELMask, V2, V1);
+    }
+    else if (VT == MVT::v32i8) {
+      SmallVector<unsigned int, 32> SelectMask_b(Mask.size() / 4, -1);
+      for (int i = 0, j = 0; i < Size; i += 4) {
+        int check = 0;
+        if (Mask[i] >= Size)
+          check |= 1;
+        if (Mask[i + 1] >= Size)
+          check |= 2;
+        if (Mask[i + 2] >= Size)
+          check |= 4;
+        if (Mask[i + 3] >= Size)
+          check |= 8;
+        switch (check) {
+        default:         break;
+        case 0:          SelectMask_b[j++] = 0x00000000;          break;
+        case 1:          SelectMask_b[j++] = 0xFF000000;          break;
+        case 2:          SelectMask_b[j++] = 0x00FF0000;          break;
+        case 3:          SelectMask_b[j++] = 0xFFFF0000;          break;
+        case 4:          SelectMask_b[j++] = 0x0000FF00;          break;
+        case 5:          SelectMask_b[j++] = 0xFF00FF00;          break;
+        case 6:          SelectMask_b[j++] = 0x00FFFF00;          break;
+        case 7:          SelectMask_b[j++] = 0xFFFFFF00;          break;
+        case 8:          SelectMask_b[j++] = 0x000000FF;          break;
+        case 9:          SelectMask_b[j++] = 0xFF0000FF;          break;
+        case 10:         SelectMask_b[j++] = 0x00FF00FF;          break;
+        case 11:         SelectMask_b[j++] = 0xFFFF00FF;          break;
+        case 12:         SelectMask_b[j++] = 0x0000FFFF;          break;
+        case 13:         SelectMask_b[j++] = 0xFF00FFFF;          break;
+        case 14:         SelectMask_b[j++] = 0x00FFFFFF;          break;
+        case 15:         SelectMask_b[j++] = 0xFFFFFFFF;          break;
+        }
+      }
+
+      SDValue XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned int>(
+                                            SelectMask_b, MVT::v8i32, DAG, DL, true);
+
+      return DAG.getNode(ISD::VSELECT, DL, MVT::v8i32, XVBITSELMask, V2, V1);
+    }
+  }
+
+  return SDValue();
 }
 
 /// Handle lowering of 4-lane 64-bit floating point shuffles.
@@ -6667,6 +6759,34 @@ static SDValue lowerV8F32_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
   // return SDValue();
 }
 
+static SDValue lowerV16I16_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
+                                       SDValue V1, SDValue V2,
+                                       const LoongArchSubtarget &Subtarget,
+                                       SelectionDAG &DAG) {
+  assert(V1.getSimpleValueType() == MVT::v16i16 && "Bad operand type!");
+  assert(V2.getSimpleValueType() == MVT::v16i16 && "Bad operand type!");
+  assert(Mask.size() == 16 && "Unexpected mask size for v16 shuffle!");
+
+  if (Subtarget.hasLASX()) {
+    return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v16i16, V1, V2,
+                                                    Mask, Subtarget, DAG);
+  }
+}
+
+static SDValue lowerV32I8_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
+                                       SDValue V1, SDValue V2,
+                                       const LoongArchSubtarget &Subtarget,
+                                       SelectionDAG &DAG) {
+  assert(V1.getSimpleValueType() == MVT::v32i8 && "Bad operand type!");
+  assert(V2.getSimpleValueType() == MVT::v32i8 && "Bad operand type!");
+  assert(Mask.size() == 32 && "Unexpected mask size for v32 shuffle!");
+
+  if (Subtarget.hasLASX()) {
+    return lowerVectorShuffleAsDecomposedShuffleBlend(DL, MVT::v32i8, V1, V2,
+                                                    Mask, Subtarget, DAG);
+  }
+}
+
 /// High-level routine to lower various 256-bit LoongArch vector shuffles.
 ///
 /// This routine either breaks down the specific type of a 256-bit LoongArch 
@@ -6687,11 +6807,9 @@ static SDValue lower256Bit_VECTOR_SHUFFLE(const SDLoc &DL, ArrayRef<int> Mask,
   case MVT::v8i32:
     return lowerV8I32_VECTOR_SHUFFLE(DL, Mask, V1, V2, Subtarget, DAG);
   case MVT::v16i16:
-    return SDValue();
-  //   return lowerV16I16_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+    return lowerV16I16_VECTOR_SHUFFLE(DL, Mask, V1, V2, Subtarget, DAG);
   case MVT::v32i8:
-    return SDValue();
-  //   return lowerV32I8_VECTOR_SHUFFLE(DL, Mask, Zeroable, V1, V2, Subtarget, DAG);
+    return lowerV32I8_VECTOR_SHUFFLE(DL, Mask, V1, V2, Subtarget, DAG);
   default:
     llvm_unreachable("Not a valid 256-bit LoongArch vector type!");
   }
