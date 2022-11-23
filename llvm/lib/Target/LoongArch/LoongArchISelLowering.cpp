@@ -6492,9 +6492,9 @@ static SDValue lowerVectorShuffleAsDecomposedShuffleBlend(
         else if (Mask[i] >= Size && Mask[i + 1] >= Size)
           SelectMask_h[j++] = 0xFFFFFFFF;
         else if (Mask[i] >= Size && Mask[i + 1] < Size)
-          SelectMask_h[j++] = 0xFFFF0000;
-        else if (Mask[i] < Size && Mask[i + 1] >= Size)
           SelectMask_h[j++] = 0x0000FFFF;
+        else if (Mask[i] < Size && Mask[i + 1] >= Size)
+          SelectMask_h[j++] = 0xFFFF0000;
       }
 
       SDValue XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned int>(
@@ -6517,20 +6517,20 @@ static SDValue lowerVectorShuffleAsDecomposedShuffleBlend(
         switch (check) {
         default:         break;
         case 0:          SelectMask_b[j++] = 0x00000000;          break;
-        case 1:          SelectMask_b[j++] = 0xFF000000;          break;
-        case 2:          SelectMask_b[j++] = 0x00FF0000;          break;
-        case 3:          SelectMask_b[j++] = 0xFFFF0000;          break;
-        case 4:          SelectMask_b[j++] = 0x0000FF00;          break;
-        case 5:          SelectMask_b[j++] = 0xFF00FF00;          break;
+        case 1:          SelectMask_b[j++] = 0x000000FF;          break;
+        case 2:          SelectMask_b[j++] = 0x0000FF00;          break;
+        case 3:          SelectMask_b[j++] = 0x0000FFFF;          break;
+        case 4:          SelectMask_b[j++] = 0x00FF0000;          break;
+        case 5:          SelectMask_b[j++] = 0x00FF00FF;          break;
         case 6:          SelectMask_b[j++] = 0x00FFFF00;          break;
-        case 7:          SelectMask_b[j++] = 0xFFFFFF00;          break;
-        case 8:          SelectMask_b[j++] = 0x000000FF;          break;
+        case 7:          SelectMask_b[j++] = 0x00FFFFFF;          break;
+        case 8:          SelectMask_b[j++] = 0xFF000000;          break;
         case 9:          SelectMask_b[j++] = 0xFF0000FF;          break;
-        case 10:         SelectMask_b[j++] = 0x00FF00FF;          break;
-        case 11:         SelectMask_b[j++] = 0xFFFF00FF;          break;
-        case 12:         SelectMask_b[j++] = 0x0000FFFF;          break;
-        case 13:         SelectMask_b[j++] = 0xFF00FFFF;          break;
-        case 14:         SelectMask_b[j++] = 0x00FFFFFF;          break;
+        case 10:         SelectMask_b[j++] = 0xFF00FF00;          break;
+        case 11:         SelectMask_b[j++] = 0xFF00FFFF;          break;
+        case 12:         SelectMask_b[j++] = 0xFFFF0000;          break;
+        case 13:         SelectMask_b[j++] = 0xFFFF00FF;          break;
+        case 14:         SelectMask_b[j++] = 0xFFFFFF00;          break;
         case 15:         SelectMask_b[j++] = 0xFFFFFFFF;          break;
         }
       }
