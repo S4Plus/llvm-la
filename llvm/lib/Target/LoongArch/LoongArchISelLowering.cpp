@@ -3770,6 +3770,12 @@ LoongArchTargetLowering::LowerOperationWrapper(SDNode *N,
                                           SelectionDAG &DAG) const {
   SDValue Res = LowerOperation(SDValue(N, 0), DAG);
 
+  if (!Res.getNode())
+    return;
+
+  assert((N->getNumValues() <= Res->getNumValues()) &&
+      "Lowering returned the wrong number of results!");
+
   for (unsigned I = 0, E = Res->getNumValues(); I != E; ++I)
     Results.push_back(Res.getValue(I));
 }
@@ -3778,7 +3784,29 @@ void
 LoongArchTargetLowering::ReplaceNodeResults(SDNode *N,
                                        SmallVectorImpl<SDValue> &Results,
                                        SelectionDAG &DAG) const {
-  return LowerOperationWrapper(N, Results, DAG);
+  SDLoc dl(N);
+  switch (N->getOpcode()) {
+  default:
+    // llvm_unreachable("Do not know how to custom type legalize this operation!");
+    return LowerOperationWrapper(N, Results, DAG);
+  case LoongArchISD::VABSD: {
+    EVT VT = N->getValueType(0);
+    assert(VT.isVector() && "Unexpected VT");
+    if (getTypeAction(*DAG.getContext(), VT) == TypePromoteInteger &&
+        VT.getVectorNumElements() == 2) {
+      SDValue N0 = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::v2i64,
+                               N->getOperand(0));
+      SDValue N1 = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::v2i64,
+                               N->getOperand(1));
+      
+      SDValue Vabsd = DAG.getNode(LoongArchISD::VABSD, dl, MVT::v2i64,
+                                  N0, N1, N->getOperand(2));
+
+      Results.push_back(DAG.getNode(ISD::TRUNCATE, dl, VT, Vabsd));
+    }
+    return;
+  }
+  }
 }
 
 SDValue LoongArchTargetLowering::
