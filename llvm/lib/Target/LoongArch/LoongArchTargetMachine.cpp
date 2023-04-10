@@ -34,12 +34,18 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/Transforms/Scalar.h"
 #include <string>
 #include <cassert>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "loongarch"
+
+static cl::opt<bool>
+    EnableLoopDataPrefetch("loongarch-enable-loop-data-prefetch", cl::Hidden,
+                           cl::desc("Enable the loop data prefetch pass"),
+                           cl::init(false));
 
 extern "C" void LLVMInitializeLoongArchTarget() {
   // Register the target.
@@ -171,6 +177,13 @@ TargetPassConfig *LoongArchTargetMachine::createPassConfig(PassManagerBase &PM) 
 }
 
 void LoongArchPassConfig::addIRPasses() {
+  // Run LoopDataPrefetch
+  //
+  // Run this before LSR to remove the multiplies involved in computing the
+  // pointer values N iterations ahead.
+  if (TM->getOptLevel() != CodeGenOpt::None && EnableLoopDataPrefetch)
+    addPass(createLoopDataPrefetchPass());
+
   TargetPassConfig::addIRPasses();
   addPass(createAtomicExpandPass());
 }
