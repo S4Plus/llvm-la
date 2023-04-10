@@ -337,6 +337,8 @@ ComplexPattern<iPTR, 2, "selectAddrRegImm", [frameindex]>;
 def addrimm14lsl2 : ComplexPattern<iPTR, 2, "selectIntAddrSImm14Lsl2",
                                    [frameindex]>;
 
+def RegSImm12Addr : ComplexPattern<iPTR, 2, "SelectRegSImm12Addr">;
+
 class ConstantUImmAsmOperandClass<int Bits, list<AsmOperandClass> Supers = [],
                                   int Offset = 0> : AsmOperandClass {
   let Name = "ConstantUImm" # Bits # "_" # Offset;
@@ -1008,6 +1010,11 @@ class Preld_Raw<string opstr, RegisterOperand RO>
                !strconcat(opstr, "\t$hint, $rj, $imm12"),
                [],
                FrmR, opstr>;
+def PRELD : FmtPRELD<(outs), (ins uimm5:$imm5, GPR64:$rj, simm12:$imm12), "preld",
+                     "$imm5, $rj, $imm12">;
+def PRELDX : FmtPRELDX<(outs), (ins uimm5:$imm5, GPR64:$rj, GPR64:$rk), "preldx",
+                       "$imm5, $rj, $rk">;
+
 class IsCall {
   bit isCall = 1;
   bit isCTI = 1;
@@ -1329,11 +1336,17 @@ def STLE_H : STGT_LE<"stle.h", GPR64Opnd>, R3MI<0b11111101>;
 def STLE_W : STGT_LE<"stle.w", GPR64Opnd>, R3MI<0b11111110>;
 def STLE_D : STGT_LE<"stle.d", GPR64Opnd>, R3MI<0b11111111>;
 
-let isCodeGenOnly = 1 in {
-def PRELD  : Preld<"preld", mem, GPR64Opnd>, PRELD_FM;
-}
+// let isCodeGenOnly = 1 in {
+// def PRELD  : Preld<"preld", mem, GPR64Opnd>, PRELD_FM;
+// }
 
-def PRELD_Raw  : Preld_Raw<"preld", GPR64Opnd>, PRELD_FM;
+// def PRELD_Raw  : Preld_Raw<"preld", GPR64Opnd>, PRELD_FM;
+
+/// Data prefetch
+def : Pat<(prefetch (RegSImm12Addr GPR64:$rj, simm12:$imm12), (i32 0), imm, (i32 1)),
+          (PRELD 0, GPR64:$rj, simm12:$imm12)>; // data prefetch for loads
+def : Pat<(prefetch (RegSImm12Addr GPR64:$rj, simm12:$imm12), (i32 1), imm, (i32 1)),
+          (PRELD 8, GPR64:$rj, simm12:$imm12)>; // data prefetch for stores
 
 let isCall=1, isCTI=1, Defs = [RA] in {
   class JumpLink<string opstr, DAGOperand opnd> :

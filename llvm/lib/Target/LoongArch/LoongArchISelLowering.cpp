@@ -546,6 +546,8 @@ LoongArchTargetLowering::LoongArchTargetLowering(const LoongArchTargetMachine &T
   setOperationAction(ISD::INTRINSIC_W_CHAIN, MVT::Other, Custom);
   setOperationAction(ISD::INTRINSIC_VOID, MVT::Other, Custom);
 
+  setOperationAction(ISD::PREFETCH, MVT::Other, Legal);
+
   // Replace the accumulator-based multiplies with a
   // three register instruction.
   setOperationAction(ISD::SMUL_LOHI, MVT::i32, Expand);

@@ -94,6 +94,9 @@ private:
   bool selectIntAddrSImm10Lsl3(SDValue Addr, SDValue &Base,
                                SDValue &Offset) const;
 
+  bool SelectRegSImm12Addr(SDValue Addr, SDValue &Base,
+                           SDValue &Offset) const;
+
   /// Select constant vector splats.
   bool selectVSplat(SDNode *N, APInt &Imm, unsigned MinSizeInBits) const;
   /// Select constant vector splats whose value fits in a given integer.

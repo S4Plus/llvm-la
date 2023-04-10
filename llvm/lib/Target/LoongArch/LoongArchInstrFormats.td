@@ -81,6 +81,20 @@ class InstLA<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
   field bits<32> SoftFail = 0;
 }
 
+class LAInst<dag outs, dag ins, string opcstr, string opnstr,
+             list<dag> pattern = []>
+    : Instruction {
+  field bits<32> Inst;
+  field bits<32> SoftFail = 0;
+
+  let Namespace = "LoongArch";
+  let Size = 4;
+  let OutOperandList = outs;
+  let InOperandList = ins;
+  let AsmString = opcstr # "\t" # opnstr;
+  let Pattern = pattern;
+}
+
 class InstForm<dag outs, dag ins, string asmstr, list<dag> pattern,
                Format f, string opstr = ""> :
   InstLA<outs, ins, asmstr, pattern, f> {
@@ -246,6 +260,36 @@ class PRELD_FM : StdArch {
   let Inst{21-10} = imm12;
   let Inst{9-5} = rj;
   let Inst{4-0} = hint;
+}
+
+// FmtPRELD
+// < 0b0010101011 | I12 | rj | I5>
+class FmtPRELD<dag outs, dag ins, string opcstr, string opnstr,
+               list<dag> pattern = []>
+    : LAInst<outs, ins, opcstr, opnstr, pattern> {
+  bits<12> imm12;
+  bits<5> rj;
+  bits<5> imm5;
+
+  let Inst{31-22} = 0b0010101011;
+  let Inst{21-10} = imm12;
+  let Inst{9-5} = rj;
+  let Inst{4-0} = imm5;
+}
+
+// FmtPRELDX
+// < 0b00111000001011000 | rk | rj | I5>
+class FmtPRELDX<dag outs, dag ins, string opcstr, string opnstr,
+                list<dag> pattern = []>
+    : LAInst<outs, ins, opcstr, opnstr, pattern> {
+  bits<5> rk;
+  bits<5> rj;
+  bits<5> imm5;
+
+  let Inst{31-15} = 0b00111000001011000;
+  let Inst{14-10} = rk;
+  let Inst{9-5} = rj;
+  let Inst{4-0} = imm5;
 }
 
 // R3 classes: 3 registers

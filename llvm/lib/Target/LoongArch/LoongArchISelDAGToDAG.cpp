@@ -236,6 +236,27 @@ bool LoongArchDAGToDAGISel::selectIntAddrSImm10Lsl3(SDValue Addr, SDValue &Base,
   return selectAddrDefault(Addr, Base, Offset);
 }
 
+bool LoongArchDAGToDAGISel::SelectRegSImm12Addr(SDValue Addr, SDValue &Base,
+                                                SDValue &Offset) const {
+  // The address is the result of an add. Here we only consider reg+simm12.
+  SDLoc DL(Addr);
+  MVT VT = Addr.getSimpleValueType();
+  
+  if (CurDAG->isBaseWithConstantOffset(Addr)) {
+    int32_t Imm = cast<ConstantSDNode>(Addr.getOperand(1))->getSExtValue();
+    if (isInt<12>(Imm)) {
+      Base = Addr.getOperand(0);
+      Offset = CurDAG->getTargetConstant(SignExtend32<12>(Imm), DL, VT);
+      return true;
+    }
+  }
+
+  // Otherwise, do it the hard way, using constant 0 as the offset.
+  Base = Addr;
+  Offset = CurDAG->getTargetConstant(0, DL, VT);
+  return true;
+}
+
 // Select constant vector splats.
 //
 // Returns true and sets Imm if:
