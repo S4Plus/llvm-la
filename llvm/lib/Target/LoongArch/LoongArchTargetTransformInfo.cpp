@@ -74,6 +74,22 @@ unsigned LoongArchTTIImpl::getRegisterBitWidth(bool Vector) const {
   return 64;
 }
 
+unsigned LoongArchTTIImpl::getCacheLineSize() {
+  return 64;
+}
+
+unsigned LoongArchTTIImpl::getPrefetchDistance() {
+  return 200;
+}
+
+unsigned LoongArchTTIImpl::getMinPrefetchStride() {
+  return 1;
+}
+
+unsigned LoongArchTTIImpl::getMaxPrefetchIterationsAhead() {
+  return UINT_MAX;
+}
+
 unsigned LoongArchTTIImpl::getMaxInterleaveFactor(unsigned VF) {
   if (VF == 1)
     return 1;

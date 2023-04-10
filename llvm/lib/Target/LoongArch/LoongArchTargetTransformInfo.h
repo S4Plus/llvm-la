@@ -60,6 +60,14 @@ public:
 
   unsigned getRegisterBitWidth(bool Vector) const;
 
+  unsigned getCacheLineSize();
+
+  unsigned getPrefetchDistance();
+
+  unsigned getMinPrefetchStride();
+
+  unsigned getMaxPrefetchIterationsAhead();
+
   unsigned getMaxInterleaveFactor(unsigned VF);
 
   int getVectorInstrCost(unsigned Opcode, Type *Val, unsigned Index);
