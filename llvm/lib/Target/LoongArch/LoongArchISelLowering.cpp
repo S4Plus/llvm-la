@@ -5851,10 +5851,20 @@ SDValue LoongArchTargetLowering::lowerBUILD_VECTOR(SDValue Op,
 
     unsigned NumElts = ResTy.getVectorNumElements();
     SDValue Vector = DAG.getUNDEF(ResTy);
-    for (unsigned i = 0; i < NumElts; ++i) {
+    SDValue Op0 = Op.getOperand(0);
+    unsigned i = 0;
+
+    // If Op0 is not undefined, we should create node for it.
+    if (!Op0.isUndef()) {
+      Vector = DAG.getNode(ISD::SCALAR_TO_VECTOR, DL, ResTy, Op0);
+      ++i;
+    }
+    for (; i < NumElts; ++i) {
+      SDValue Opi = Node->getOperand(i);
+      if (Opi.isUndef())
+        continue;
       Vector = DAG.getNode(ISD::INSERT_VECTOR_ELT, DL, ResTy, Vector,
-                           Node->getOperand(i),
-                           DAG.getConstant(i, DL, MVT::i32));
+                           Opi, DAG.getConstant(i, DL, MVT::i32));
     }
     return Vector;
   }
