@@ -54,6 +54,21 @@ LoongArchTTIImpl::getPopcntSupport(unsigned TyWidth) {
   return TTI::PSK_Software;
 }
 
+const LoongArchTTIImpl::TTI::MemCmpExpansionOptions *
+LoongArchTTIImpl::enableMemCmpExpansion(bool IsZeroCmp) const {
+  static const auto Options = [this]() {
+    TTI::MemCmpExpansionOptions Options;
+    if (ST->is64Bit()) {
+      Options.LoadSizes.push_back(8);
+    }
+    Options.LoadSizes.push_back(4);
+    Options.LoadSizes.push_back(2);
+    Options.LoadSizes.push_back(1);
+    return Options;
+  }();
+  return &Options;
+}
+
 unsigned LoongArchTTIImpl::getNumberOfRegisters(bool Vector) {
   if (Vector && !ST->hasLSX())
     return 0;

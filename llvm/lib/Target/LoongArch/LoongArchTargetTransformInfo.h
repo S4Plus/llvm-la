@@ -54,6 +54,9 @@ public:
   /// \name Vector TTI Implementations
   /// @{
 
+  const TTI::MemCmpExpansionOptions *enableMemCmpExpansion(
+      bool IsZeroCmp) const;
+
   bool enableInterleavedAccessVectorization() { return true; }
 
   unsigned getNumberOfRegisters(bool Vector);
