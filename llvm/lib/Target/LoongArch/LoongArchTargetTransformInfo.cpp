@@ -153,25 +153,25 @@ int LoongArchTTIImpl::getArithmeticInstrCost(
       {ISD::MUL, MVT::v8i32, 1},
       {ISD::MUL, MVT::v4i64, 1},
 
-      {ISD::SDIV, MVT::v32i8, 29},
-      {ISD::SDIV, MVT::v16i16, 19},
-      {ISD::SDIV, MVT::v8i32, 14},
-      {ISD::SDIV, MVT::v4i64, 13},
+      {ISD::SDIV, MVT::v32i8, 19},
+      {ISD::SDIV, MVT::v16i16, 11},
+      {ISD::SDIV, MVT::v8i32, 8},
+      {ISD::SDIV, MVT::v4i64, 6},
 
-      {ISD::UDIV, MVT::v32i8, 29},
-      {ISD::UDIV, MVT::v16i16, 19},
-      {ISD::UDIV, MVT::v8i32, 14},
-      {ISD::UDIV, MVT::v4i64, 13},
+      {ISD::UDIV, MVT::v32i8, 19},
+      {ISD::UDIV, MVT::v16i16, 11},
+      {ISD::UDIV, MVT::v8i32, 8},
+      {ISD::UDIV, MVT::v4i64, 6},
 
-      {ISD::SREM, MVT::v32i8, 33},
-      {ISD::SREM, MVT::v16i16, 21},
-      {ISD::SREM, MVT::v8i32, 15},
-      {ISD::SREM, MVT::v4i64, 13},
+      {ISD::SREM, MVT::v32i8, 20},
+      {ISD::SREM, MVT::v16i16, 11},
+      {ISD::SREM, MVT::v8i32, 8},
+      {ISD::SREM, MVT::v4i64, 7},
 
-      {ISD::UREM, MVT::v32i8, 29},
-      {ISD::UREM, MVT::v16i16, 19},
-      {ISD::UREM, MVT::v8i32, 14},
-      {ISD::UREM, MVT::v4i64, 13},
+      {ISD::UREM, MVT::v32i8, 20},
+      {ISD::UREM, MVT::v16i16, 11},
+      {ISD::UREM, MVT::v8i32, 8},
+      {ISD::UREM, MVT::v4i64, 7},
 
       {ISD::FADD, MVT::f64, 1},
       {ISD::FADD, MVT::f32, 1},
@@ -188,10 +188,10 @@ int LoongArchTTIImpl::getArithmeticInstrCost(
       {ISD::FMUL, MVT::v4f64, 1},
       {ISD::FMUL, MVT::v8f32, 1},
 
-      {ISD::FDIV, MVT::f32, 12},
-      {ISD::FDIV, MVT::f64, 10},
-      {ISD::FDIV, MVT::v8f32, 12},
-      {ISD::FDIV, MVT::v4f64, 10}
+      {ISD::FDIV, MVT::f32, 6},
+      {ISD::FDIV, MVT::f64, 6},
+      {ISD::FDIV, MVT::v8f32, 6},
+      {ISD::FDIV, MVT::v4f64, 6}
 
   };
 
@@ -231,25 +231,25 @@ int LoongArchTTIImpl::getArithmeticInstrCost(
       {ISD::MUL, MVT::v4i32, 1},
       {ISD::MUL, MVT::v2i64, 1},
 
-      {ISD::SDIV, MVT::v16i8, 29},
-      {ISD::SDIV, MVT::v8i16, 19},
-      {ISD::SDIV, MVT::v4i32, 14},
-      {ISD::SDIV, MVT::v2i64, 13},
+      {ISD::SDIV, MVT::v16i8, 19},
+      {ISD::SDIV, MVT::v8i16, 11},
+      {ISD::SDIV, MVT::v4i32, 8},
+      {ISD::SDIV, MVT::v2i64, 6},
 
-      {ISD::UDIV, MVT::v16i8, 29},
-      {ISD::UDIV, MVT::v8i16, 19},
-      {ISD::UDIV, MVT::v4i32, 14},
-      {ISD::UDIV, MVT::v2i64, 13},
+      {ISD::UDIV, MVT::v16i8, 19},
+      {ISD::UDIV, MVT::v8i16, 11},
+      {ISD::UDIV, MVT::v4i32, 8},
+      {ISD::UDIV, MVT::v2i64, 6},
 
-      {ISD::SREM, MVT::v16i8, 33},
-      {ISD::SREM, MVT::v8i16, 21},
-      {ISD::SREM, MVT::v4i32, 15},
-      {ISD::SREM, MVT::v2i64, 13},
+      {ISD::SREM, MVT::v16i8, 20},
+      {ISD::SREM, MVT::v8i16, 11},
+      {ISD::SREM, MVT::v4i32, 8},
+      {ISD::SREM, MVT::v2i64, 7},
 
-      {ISD::UREM, MVT::v16i8, 29},
-      {ISD::UREM, MVT::v8i16, 19},
-      {ISD::UREM, MVT::v4i32, 14},
-      {ISD::UREM, MVT::v2i64, 13},
+      {ISD::UREM, MVT::v16i8, 20},
+      {ISD::UREM, MVT::v8i16, 11},
+      {ISD::UREM, MVT::v4i32, 8},
+      {ISD::UREM, MVT::v2i64, 7},
 
       {ISD::FADD, MVT::f64, 1},
       {ISD::FADD, MVT::f32, 1},
@@ -266,10 +266,10 @@ int LoongArchTTIImpl::getArithmeticInstrCost(
       {ISD::FMUL, MVT::v2f64, 1},
       {ISD::FMUL, MVT::v4f32, 1},
 
-      {ISD::FDIV, MVT::f32, 12},
-      {ISD::FDIV, MVT::f64, 10},
-      {ISD::FDIV, MVT::v4f32, 12},
-      {ISD::FDIV, MVT::v2f64, 10}
+      {ISD::FDIV, MVT::f32, 6},
+      {ISD::FDIV, MVT::f64, 6},
+      {ISD::FDIV, MVT::v4f32, 6},
+      {ISD::FDIV, MVT::v2f64, 6}
 
   };
 
