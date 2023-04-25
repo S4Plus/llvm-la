@@ -281,6 +281,95 @@ int LoongArchTTIImpl::getArithmeticInstrCost(
   return BaseT::getArithmeticInstrCost(Opcode, Ty, Op1Info, Op2Info);
 }
 
+int LoongArchTTIImpl::getShuffleCost(TTI::ShuffleKind Kind, Type *Tp, int Index,
+                                     Type *SubTp) {
+  std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, Tp);
+
+  if (Kind == TTI::SK_Transpose)
+    Kind = TTI::SK_PermuteTwoSrc;
+
+  if (Kind == TTI::SK_Reverse)
+    Kind = TTI::SK_PermuteSingleSrc;
+
+  if (Kind == TTI::SK_Broadcast || Kind == TTI::SK_PermuteTwoSrc ||
+      Kind == TTI::SK_Select || Kind == TTI::SK_PermuteSingleSrc) {
+
+    static const CostTblEntry LASXShuffleTbl[] = {
+
+      { TTI::SK_Broadcast, MVT::v32i8, 1 },
+      { TTI::SK_Broadcast, MVT::v16i16, 1 },
+      { TTI::SK_Broadcast, MVT::v8i32, 1 },
+      { TTI::SK_Broadcast, MVT::v4i64, 1 },
+      { TTI::SK_Broadcast, MVT::v8f32, 1 },
+      { TTI::SK_Broadcast, MVT::v4f64, 1 },
+
+      { TTI::SK_Select, MVT::v32i8, 2 },
+      { TTI::SK_Select, MVT::v16i16, 2 },
+      { TTI::SK_Select, MVT::v8i32, 2 },
+      { TTI::SK_Select, MVT::v4i64, 2 },
+      { TTI::SK_Select, MVT::v8f32, 2 },
+      { TTI::SK_Select, MVT::v4f64, 2 },
+
+      { TTI::SK_PermuteTwoSrc, MVT::v32i8, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v16i16, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v8i32, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v4i64, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v8f32, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v4f64, 1 },
+
+      { TTI::SK_PermuteSingleSrc, MVT::v32i8, 1 },
+      { TTI::SK_PermuteSingleSrc, MVT::v16i16, 1 },
+      { TTI::SK_PermuteSingleSrc, MVT::v8i32, 2 },
+      { TTI::SK_PermuteSingleSrc, MVT::v4i64, 2 },
+      { TTI::SK_PermuteSingleSrc, MVT::v8f32, 2 },
+      { TTI::SK_PermuteSingleSrc, MVT::v4f64, 2 }
+
+    };
+
+    if (ST->hasLASX())
+      if (const auto *Entry = CostTableLookup(LASXShuffleTbl, Kind, LT.second))
+        return LT.first * Entry->Cost;
+
+    static const CostTblEntry LSXShuffleTbl[] = {
+
+      { TTI::SK_Broadcast, MVT::v16i8, 1 },
+      { TTI::SK_Broadcast, MVT::v8i16, 1 },
+      { TTI::SK_Broadcast, MVT::v4i32, 1 },
+      { TTI::SK_Broadcast, MVT::v2i64, 1 },
+      { TTI::SK_Broadcast, MVT::v4f32, 1 },
+      { TTI::SK_Broadcast, MVT::v2f64, 1 },
+
+      { TTI::SK_Select, MVT::v16i8, 2 },
+      { TTI::SK_Select, MVT::v8i16, 2 },
+      { TTI::SK_Select, MVT::v4i32, 2 },
+      { TTI::SK_Select, MVT::v2i64, 2 },
+      { TTI::SK_Select, MVT::v4f32, 2 },
+      { TTI::SK_Select, MVT::v2f64, 2 },
+
+      { TTI::SK_PermuteTwoSrc, MVT::v16i8, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v8i16, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v4i32, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v2i64, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v4f32, 1 },
+      { TTI::SK_PermuteTwoSrc, MVT::v2f64, 1 },
+
+      { TTI::SK_PermuteSingleSrc, MVT::v16i8, 1 },
+      { TTI::SK_PermuteSingleSrc, MVT::v8i16, 1 },
+      { TTI::SK_PermuteSingleSrc, MVT::v4i32, 2 },
+      { TTI::SK_PermuteSingleSrc, MVT::v2i64, 2 },
+      { TTI::SK_PermuteSingleSrc, MVT::v4f32, 2 },
+      { TTI::SK_PermuteSingleSrc, MVT::v2f64, 2 }
+
+    };
+
+    if (ST->hasLSX())
+      if (const auto *Entry = CostTableLookup(LSXShuffleTbl, Kind, LT.second))
+        return LT.first * Entry->Cost;
+  }
+
+  return BaseT::getShuffleCost(Kind, Tp, Index, SubTp);
+}
+
 int LoongArchTTIImpl::getVectorInstrCost(unsigned Opcode, Type *Val,
                                          unsigned Index) {
   assert(Val->isVectorTy() && "This must be a vector type");
