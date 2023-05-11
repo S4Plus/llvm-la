@@ -3794,14 +3794,23 @@ LoongArchTargetLowering::ReplaceNodeResults(SDNode *N,
   case LoongArchISD::VABSD: {
     EVT VT = N->getValueType(0);
     assert(VT.isVector() && "Unexpected VT");
-    if (getTypeAction(*DAG.getContext(), VT) == TypePromoteInteger &&
-        VT.getVectorNumElements() == 2) {
-      SDValue N0 = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::v2i64,
+    if (getTypeAction(*DAG.getContext(), VT) == TypePromoteInteger) {
+      EVT PromoteVT;
+      if (VT.getVectorNumElements() == 2)
+        PromoteVT = MVT::v2i64;
+      else if (VT.getVectorNumElements() == 4)
+        PromoteVT = MVT::v4i32;
+      else if (VT.getVectorNumElements() == 8)
+        PromoteVT = MVT::v8i16;
+      else
+        return;
+
+      SDValue N0 = DAG.getNode(ISD::ANY_EXTEND, dl, PromoteVT,
                                N->getOperand(0));
-      SDValue N1 = DAG.getNode(ISD::ANY_EXTEND, dl, MVT::v2i64,
+      SDValue N1 = DAG.getNode(ISD::ANY_EXTEND, dl, PromoteVT,
                                N->getOperand(1));
       
-      SDValue Vabsd = DAG.getNode(LoongArchISD::VABSD, dl, MVT::v2i64,
+      SDValue Vabsd = DAG.getNode(LoongArchISD::VABSD, dl, PromoteVT,
                                   N0, N1, N->getOperand(2));
 
       Results.push_back(DAG.getNode(ISD::TRUNCATE, dl, VT, Vabsd));
