@@ -3791,7 +3791,8 @@ LoongArchTargetLowering::ReplaceNodeResults(SDNode *N,
   default:
     // llvm_unreachable("Do not know how to custom type legalize this operation!");
     return LowerOperationWrapper(N, Results, DAG);
-  case LoongArchISD::VABSD: {
+  case LoongArchISD::VABSD:
+  case LoongArchISD::UVABSD: {
     EVT VT = N->getValueType(0);
     assert(VT.isVector() && "Unexpected VT");
     if (getTypeAction(*DAG.getContext(), VT) == TypePromoteInteger) {
@@ -3810,7 +3811,7 @@ LoongArchTargetLowering::ReplaceNodeResults(SDNode *N,
       SDValue N1 = DAG.getNode(ISD::ANY_EXTEND, dl, PromoteVT,
                                N->getOperand(1));
       
-      SDValue Vabsd = DAG.getNode(LoongArchISD::VABSD, dl, PromoteVT,
+      SDValue Vabsd = DAG.getNode(N->getOpcode(), dl, PromoteVT,
                                   N0, N1, N->getOperand(2));
 
       Results.push_back(DAG.getNode(ISD::TRUNCATE, dl, VT, Vabsd));
