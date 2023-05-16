@@ -6534,6 +6534,9 @@ static SDValue lowerVectorShuffleAsDecomposedShuffleBlend(
     V1 = DAG.getVectorShuffle(VT, DL, V1, V3, ShufMask);
     V2 = DAG.getVectorShuffle(VT, DL, V2, V4, ShufMask);
 
+    SDValue CastV1 = DAG.getBitcast(MVT::v8i32, V1);
+    SDValue CastV2 = DAG.getBitcast(MVT::v8i32, V2);
+
     if (VT == MVT::v16i16) {
       SmallVector<unsigned int, 32> SelectMask_h(Mask.size() / 2, -1);
       for (int i = 0, j = 0; i < Size; i += 2) {
@@ -6550,7 +6553,7 @@ static SDValue lowerVectorShuffleAsDecomposedShuffleBlend(
       SDValue XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned int>(
                                             SelectMask_h, MVT::v8i32, DAG, DL, true);
 
-      return DAG.getNode(ISD::VSELECT, DL, MVT::v8i32, XVBITSELMask, V2, V1);
+      return DAG.getNode(ISD::VSELECT, DL, MVT::v8i32, XVBITSELMask, CastV2, CastV1);
     }
     else if (VT == MVT::v32i8) {
       SmallVector<unsigned int, 32> SelectMask_b(Mask.size() / 4, -1);
@@ -6588,7 +6591,7 @@ static SDValue lowerVectorShuffleAsDecomposedShuffleBlend(
       SDValue XVBITSELMask = getConstVectorForXVBITSEL_V<unsigned int>(
                                             SelectMask_b, MVT::v8i32, DAG, DL, true);
 
-      return DAG.getNode(ISD::VSELECT, DL, MVT::v8i32, XVBITSELMask, V2, V1);
+      return DAG.getNode(ISD::VSELECT, DL, MVT::v8i32, XVBITSELMask, CastV2, CastV1);
     }
   }
 
