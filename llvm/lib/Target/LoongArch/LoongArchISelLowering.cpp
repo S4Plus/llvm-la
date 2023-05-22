@@ -3437,7 +3437,10 @@ static SDValue lowerVECTOR_SHUFFLE_XSHFD(SDValue Op, EVT ResTy,
       return SDValue();
   }
 
-  int XSHFDMask = (Indices[1] % Size) * 4 + (Indices[0] % Size);
+  int XSHFDMask = (Indices[1] < HalfSize ? Indices[1] :
+                  Indices[1] - HalfSize) * 4 +
+                  (Indices[0] < HalfSize ? Indices[0] :
+                  Indices[0] - HalfSize);
 
   return DAG.getNode(LoongArchISD::XVSHUF4I, DL, ResTy, Op1, Op2,
                      DAG.getConstant(XSHFDMask, DL, MVT::i32));
